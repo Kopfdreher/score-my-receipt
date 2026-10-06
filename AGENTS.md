@@ -8,7 +8,7 @@ Human setup lives in `README.md`. Follow this file for implementation contracts.
 
 - Vue 3 **Options API** (`export default {}`), order: `components`, `props`, `data()`, `computed`, `watch`, `mounted()`, `unmounted()`, `methods`
 - Vite, Yarn (not npm), Vuetify 3, Vue Router, Pinia, vue-i18n
-- `$t` for all user-facing strings (`capture.*`, `review.*`, `score.*` in `src/i18n/locales/en.json`)
+- `$t` for all user-facing strings (`signIn.*`, `upload.*`, `review.*`, `score.*` in `src/i18n/locales/en.json`)
 - Prefer `.then()` over `async`/`await`
 - Import page components with `defineAsyncComponent`
 - API logic only in `src/services/`; session state in `src/store.js`
@@ -18,7 +18,7 @@ Human setup lives in `README.md`. Follow this file for implementation contracts.
 
 | Pair | Route | View | May edit |
 | --- | --- | --- | --- |
-| A Capture | `/` | `src/views/Home.vue` | Capture UI, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
+| A Capture | `/upload` (`/` redirects) | `src/views/Upload.vue` | Sign-in is `/sign-in`. Capture UI, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
 | B Adjust | `/review` | `src/views/Review.vue` | Item UI, `updateItem` / `addItem` / `removeItem`, `createReceiptItem` / `updateReceiptItem` / `createPrice` |
 | C Score | `/score` | `src/views/Score.vue` | Score UI; **read** `getItems` / `getReceipt` only |
 

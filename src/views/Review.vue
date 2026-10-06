@@ -31,7 +31,7 @@ export default {
       }
     },
     goBack() {
-      this.$router.push({ name: 'home' })
+      this.$router.push({ name: 'upload' })
     },
     goNext() {
       this.$router.push({ name: 'score' })

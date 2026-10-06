@@ -19,18 +19,20 @@ export const vuetify = createVuetify({
     themes: {
       light: {
         colors: {
-          primary: '#341100',
-          header: '#f2e9e4',
-          footer: '#bdbdbd'
-        }
-      },
-      dark: {
-        colors: {
-          primary: '#A08D84',
-          header: '#201A17',
-          footer: '#424242'
+          primary: '#1F6B4A',
+          secondary: '#C8E6C0',
+          surface: '#F4F7F2',
+          background: '#16382A',
+          'on-primary': '#FFFFFF',
+          'on-background': '#F4F7F2'
         }
       }
+    }
+  },
+  defaults: {
+    VBtn: {
+      rounded: 'lg',
+      style: 'text-transform: none; letter-spacing: 0;'
     }
   }
 })

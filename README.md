@@ -8,7 +8,7 @@ Three-screen app. Capture, Adjust, and Score can be built in parallel against a 
 
 | Pair | Screen | Route | Owns |
 | --- | --- | --- | --- |
-| A | Capture | `/` | Photo, auth, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
+| A | Capture | `/upload` (`/` redirects to sign-in or upload) | Photo, auth, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
 | B | Adjust | `/review` | Item editor, `updateItem` / `addItem` / `removeItem`, later `updateReceiptItem` / `createReceiptItem` / `createPrice` |
 | C | Score | `/score` | Read `getItems` only; scoring UI. Do not call upload APIs |
 
