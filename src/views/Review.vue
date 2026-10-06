@@ -26,7 +26,11 @@ export default {
   methods: {
     ensureReceipt() {
       const store = useAppStore()
-      if (this.$route.query.mock === '1' || store.getItems.length === 0) {
+      if (this.$route.query.mock === '1') {
+        store.loadMockReceipt()
+        return
+      }
+      if (!store.getReceipt.proofId && store.getItems.length === 0) {
         store.loadMockReceipt()
       }
     },

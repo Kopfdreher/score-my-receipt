@@ -14,13 +14,23 @@
         {{ $t('upload.title') }}
       </h1>
       <p class="upload__support">
-        {{ $t('upload.support') }}
+        {{ statusMessage }}
       </p>
+
+      <v-alert
+        v-if="errorMessage"
+        class="mb-6"
+        type="error"
+        variant="tonal"
+        :text="errorMessage"
+      />
 
       <v-btn
         color="primary"
         size="x-large"
         prepend-icon="mdi-line-scan"
+        :loading="busy"
+        :disabled="busy"
         @click="openFilePicker"
       >
         {{ $t('upload.scanCta') }}
@@ -34,7 +44,7 @@
         ref="fileInput"
         class="d-sr-only"
         type="file"
-        accept="image/*,.pdf"
+        accept="image/*"
         @change="onFileSelected"
       >
     </section>
@@ -43,6 +53,11 @@
 
 <script>
 import { defineAsyncComponent } from 'vue'
+import { useAppStore } from '@/store'
+import openPricesApi from '@/services/openPricesApi'
+
+const POLL_INTERVAL_MS = 2000
+const POLL_TRIES = 15
 
 export default {
   name: 'Upload',
@@ -51,8 +66,21 @@ export default {
   },
   data() {
     return {
-      selectedFile: null
+      busy: false,
+      phase: 'idle',
+      errorMessage: null,
+      pollTimer: null
     }
+  },
+  computed: {
+    statusMessage() {
+      if (this.phase === 'uploading') return this.$t('upload.uploading')
+      if (this.phase === 'extracting') return this.$t('upload.extracting')
+      return this.$t('upload.support')
+    }
+  },
+  unmounted() {
+    this.clearPoll()
   },
   methods: {
     openFilePicker() {
@@ -60,8 +88,101 @@ export default {
     },
     onFileSelected(event) {
       const [file] = event.target.files || []
-      this.selectedFile = file || null
-      // Receipt upload API wiring comes next; keep the real file selection only.
+      event.target.value = ''
+      if (!file || this.busy) return
+      this.uploadReceipt(file)
+    },
+    uploadReceipt(file) {
+      const date = this.localDate()
+      const currency = this.currencyFromLocale()
+      const imagePreviewUrl = URL.createObjectURL(file)
+      const store = useAppStore()
+
+      this.busy = true
+      this.phase = 'uploading'
+      this.errorMessage = null
+      this.clearPoll()
+
+      openPricesApi.createProof(file, { date, currency })
+        .then((proof) => {
+          const proofId = proof && proof.id
+          this.phase = 'extracting'
+          return this.pollReceiptItems(proofId, 0)
+            .then((rows) => ({ proofId, rows }))
+        })
+        .then(({ proofId, rows }) => {
+          store.setReceiptFromCapture({
+            proofId,
+            date,
+            currency,
+            locationOsmId: null,
+            locationOsmType: null,
+            imagePreviewUrl,
+            status: rows.length ? 'ready' : 'error',
+            errorMessage: rows.length ? null : this.$t('upload.error'),
+            items: rows.map((row) => this.mapReceiptItem(row))
+          })
+          return this.$router.push({ name: 'review' })
+        })
+        .catch(() => {
+          URL.revokeObjectURL(imagePreviewUrl)
+          this.phase = 'idle'
+          this.errorMessage = this.$t('upload.error')
+        })
+        .finally(() => {
+          this.busy = false
+        })
+    },
+    pollReceiptItems(proofId, attempt) {
+      return openPricesApi.getReceiptItems({ proof_id: proofId })
+        .then((payload) => {
+          const rows = this.rowsFromPayload(payload)
+          if (rows.length || attempt >= POLL_TRIES - 1) return rows
+          return new Promise((resolve, reject) => {
+            this.pollTimer = setTimeout(() => {
+              this.pollReceiptItems(proofId, attempt + 1).then(resolve).catch(reject)
+            }, POLL_INTERVAL_MS)
+          })
+        })
+    },
+    rowsFromPayload(payload) {
+      if (Array.isArray(payload)) return payload
+      if (payload && Array.isArray(payload.items)) return payload.items
+      if (payload && Array.isArray(payload.results)) return payload.results
+      return []
+    },
+    mapReceiptItem(row) {
+      const data = row.data && typeof row.data === 'object' ? row.data : {}
+      const barcode = data.product_code || data.barcode || row.product_code || null
+      const categoryTag = data.category_tag || row.category_tag || null
+      return {
+        id: row.id,
+        name: data.product_name || data.name || row.product_name || '',
+        price: data.price ?? row.price ?? null,
+        quantity: data.quantity ?? row.quantity ?? 1,
+        barcode: barcode || null,
+        categoryTag: categoryTag || null,
+        off: null
+      }
+    },
+    localDate() {
+      const now = new Date()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      return `${now.getFullYear()}-${month}-${day}`
+    },
+    currencyFromLocale() {
+      const locale = navigator.language || ''
+      const region = (locale.split('-')[1] || '').toUpperCase()
+      if (region === 'US') return 'USD'
+      if (region === 'GB') return 'GBP'
+      return 'EUR'
+    },
+    clearPoll() {
+      if (this.pollTimer) {
+        clearTimeout(this.pollTimer)
+        this.pollTimer = null
+      }
     }
   }
 }

@@ -6,7 +6,10 @@
     "title": "Scan your receipt",
     "support": "Take a photo or choose a receipt image. We’ll read the items with Open Prices and score them with Open Food Facts.",
     "scanCta": "Scan receipt",
-    "hint": "JPG, PNG, or PDF"
+    "hint": "JPG or PNG",
+    "uploading": "Uploading receipt…",
+    "extracting": "Reading items…",
+    "error": "Could not upload this receipt. Try another photo."
   },
   "review": {
     "title": "Adjust receipt",
