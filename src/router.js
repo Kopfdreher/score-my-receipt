@@ -8,6 +8,16 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: defineAsyncComponent(() => import('@/views/Home.vue'))
+    },
+    {
+      path: '/review',
+      name: 'review',
+      component: defineAsyncComponent(() => import('@/views/Review.vue'))
+    },
+    {
+      path: '/score',
+      name: 'score',
+      component: defineAsyncComponent(() => import('@/views/Score.vue'))
     }
   ]
 })

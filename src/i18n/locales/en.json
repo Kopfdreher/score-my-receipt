@@ -1,5 +1,21 @@
 {
   "app": {
     "name": "Score My Receipt"
+  },
+  "capture": {
+    "title": "Capture receipt",
+    "teamNote": "Pair A: add photo capture and Open Prices upload here.",
+    "next": "Next"
+  },
+  "review": {
+    "title": "Adjust receipt",
+    "teamNote": "Pair B: edit items, then write receipt-items and prices back to Open Prices.",
+    "back": "Back",
+    "next": "Next"
+  },
+  "score": {
+    "title": "Receipt score",
+    "teamNote": "Pair C: show Nutri-Score and related scores from the session items.",
+    "back": "Back"
   }
 }

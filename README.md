@@ -2,7 +2,23 @@
 
 A Vue.js frontend for a receipt upload tool, aligned with the [Open Prices frontend](https://github.com/openfoodfacts/open-prices-frontend) stack so it can later be contributed upstream.
 
-This is an early scaffold: the app boots, but there is no receipt UI yet.
+Three-screen app. Capture, Adjust, and Score can be built in parallel against a shared Pinia session. Adjust and Score load mock items until Capture writes a real receipt.
+
+## Team ownership
+
+| Pair | Screen | Route | Owns |
+| --- | --- | --- | --- |
+| A | Capture | `/` | Photo, auth, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
+| B | Adjust | `/review` | Item editor, `updateItem` / `addItem` / `removeItem`, later `updateReceiptItem` / `createReceiptItem` / `createPrice` |
+| C | Score | `/score` | Read `getItems` only; scoring UI. Do not call upload APIs |
+
+Do not rename Pinia `receipt` / item fields in [`src/store.js`](src/store.js). Pair A owns those names.
+
+Suggested branches: `feat/capture`, `feat/review`, `feat/score`. Watch conflicts in `store.js`, `router.js`, and `src/i18n/locales/en.json`.
+
+If `items` is empty (or you open `/review?mock=1` / `/score?mock=1`), the app loads [`src/data/mockReceipt.js`](src/data/mockReceipt.js).
+
+Staging only. Pair B will later persist corrections with `PATCH /receipt-items` and `POST /prices`.
 
 ## Stack
 
@@ -30,6 +46,10 @@ yarn lint
 yarn build
 ```
 
+GitHub Actions runs `yarn lint` and `yarn build` on pull requests and on push to `main`. Warnings fail lint (`--max-warnings=0`).
+
+A Husky pre-commit hook runs `lint-staged`, which auto-fixes staged `.js`/`.vue` files with ESLint and rejects the commit if anything remains. After `yarn`, the hook is installed locally. CI still runs if someone skips the hook.
+
 ## Environment
 
 `.env` defaults to the Open Prices **staging** API. Do not point this hackathon work at production.
@@ -55,13 +75,11 @@ Writes need an [Open Food Facts account](https://world.openfoodfacts.org). Excha
 
 The client in `src/services/openPricesApi.js` follows the Open Prices frontend pattern: prepend the env base URL, omit cookies (`credentials: 'omit'`), send JSON unless the body is `FormData`, and always include `app_name` as a query param.
 
-Receipt-related endpoints (not wired to UI yet):
+Client methods in `src/services/openPricesApi.js` (no UI calls yet except navigation):
 
-- `POST /proofs/drafts/upload` then `PATCH /proofs/drafts/{id}` (or `POST /proofs/upload`) with `type=RECEIPT`
-- `POST /proofs/drafts/{id}/anonymize`
-- `POST /proofs/process-with-gemini`
-- `/receipt-items` CRUD
-- `POST /prices` with `proof_id`, `product_code`, price, currency, date, and OSM location
+- `createProof` — `POST /proofs/upload` (`type=RECEIPT`)
+- `getReceiptItems` / `createReceiptItem` / `updateReceiptItem`
+- `createPrice` — `POST /prices`
 
 ### Open Food Facts
 
