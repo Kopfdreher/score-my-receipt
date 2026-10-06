@@ -11,7 +11,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint"
+    "lint": "eslint --max-warnings=0",
+    "lint:fix": "eslint --fix --max-warnings=0",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,vue}": "eslint --fix --max-warnings=0 --no-warn-ignored"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
@@ -28,6 +33,8 @@
     "eslint": "^10.7.0",
     "eslint-plugin-vue": "^10.9.2",
     "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "vite": "^5.4.20",
     "vue-eslint-parser": "^10.3.0"
   }

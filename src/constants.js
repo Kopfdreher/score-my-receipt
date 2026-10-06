@@ -6,5 +6,6 @@ export default {
   APP_URL: import.meta.env.VITE_OPEN_PRICES_APP_URL,
   APP_API_URL: `${import.meta.env.VITE_OPEN_PRICES_APP_URL}/api/docs`,
   OFF_API_URL: 'https://world.openfoodfacts.org/api/v2/product',
+  OFF_SIGN_UP_URL: 'https://world.openfoodfacts.org/cgi/user.pl',
   PROOF_TYPE_RECEIPT
 }

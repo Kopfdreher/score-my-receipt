@@ -1,5 +1,45 @@
 {
   "app": {
     "name": "Score My Receipt"
+  },
+  "upload": {
+    "title": "Scan your receipt",
+    "support": "Take a photo or choose a receipt image. We’ll read the items with Open Prices and score them with Open Food Facts.",
+    "scanCta": "Scan receipt",
+    "hint": "JPG, PNG, or PDF"
+  },
+  "review": {
+    "title": "Adjust receipt",
+    "teamNote": "Pair B: edit items, then write receipt-items and prices back to Open Prices.",
+    "back": "Back",
+    "next": "Next"
+  },
+  "score": {
+    "title": "Receipt score",
+    "teamNote": "Pair C: show Nutri-Score and related scores from the session items.",
+    "back": "Back"
+  },
+  "auth": {
+    "signedInAs": "Signed in as {username}",
+    "signOut": "Sign out"
+  },
+  "signIn": {
+    "eyebrow": "Open Food Facts · Open Prices",
+    "tagline": "See the nutrition and climate story behind every grocery run.",
+    "detail": "Sign in once, scan a receipt, and review Nutri-Score, Eco-Score, and CO₂ for the products you bought.",
+    "title": "Welcome back",
+    "support": "Sign in with your Open Food Facts account to continue.",
+    "username": "Username",
+    "usernamePlaceholder": "Open Food Facts username",
+    "usernameHint": "Use your user id, not your email address.",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "submit": "Sign in",
+    "noAccount": "No account yet?",
+    "createAccount": "Create one on Open Food Facts",
+    "errors": {
+      "generic": "Sign in failed. Check your username and password.",
+      "network": "Could not reach Open Prices. Check your connection and try again."
+    }
   }
 }
