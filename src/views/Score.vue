@@ -1,20 +1,335 @@
 <template>
-  <v-main>
-    <v-container>
-      <h1>{{ $t('score.title') }}</h1>
-      <p>{{ $t('score.teamNote') }}</p>
-      <v-btn class="mt-4" @click="goBack">
-        {{ $t('score.back') }}
-      </v-btn>
-    </v-container>
-  </v-main>
+  <main class="score">
+    <header class="score__header">
+      <p class="score__brand">
+        {{ $t('app.name') }}
+      </p>
+      <UserSessionBar />
+    </header>
+
+    <div class="score__content">
+      <h1 class="score__title">
+        {{ $t('score.title') }}
+      </h1>
+
+      <v-alert
+        v-if="isMock"
+        class="score__alert"
+        type="info"
+        variant="tonal"
+        density="compact"
+      >
+        {{ $t('score.mockBanner') }}
+      </v-alert>
+
+      <div
+        v-if="isLoading"
+        class="score__state"
+      >
+        <v-progress-circular
+          indeterminate
+          color="secondary"
+        />
+        <p>{{ $t('score.loading') }}</p>
+      </div>
+
+      <v-alert
+        v-else-if="hasError"
+        class="score__alert"
+        type="error"
+        variant="tonal"
+        :title="$t('score.errorTitle')"
+        :text="receipt.errorMessage || ''"
+      />
+
+      <div
+        v-else-if="!items.length"
+        class="score__state"
+      >
+        <p class="score__state-title">
+          {{ $t('score.empty') }}
+        </p>
+        <p>{{ $t('score.emptyHint') }}</p>
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-line-scan"
+          @click="scanAnother"
+        >
+          {{ $t('score.scanCta') }}
+        </v-btn>
+      </div>
+
+      <template v-else>
+        <!-- Global mark -->
+        <section class="score__card score__global">
+          <ScoreBadge
+            kind="global"
+            :value="score.global.letter"
+            size="large"
+          />
+          <div class="score__global-text">
+            <p class="score__global-label">
+              {{ $t('score.globalTitle') }}
+            </p>
+            <p
+              v-if="score.global.value !== null"
+              class="score__global-value"
+            >
+              {{ Math.round(score.global.value) }}<span>{{ $t('score.outOf') }}</span>
+            </p>
+            <p
+              v-else
+              class="score__global-value score__global-value--empty"
+            >
+              {{ $t('score.notEnoughData') }}
+            </p>
+            <p class="score__muted">
+              {{ $t('score.coverage', { scored: score.scoredCount, total: score.itemCount }) }}
+              · {{ $t('score.globalInfo') }}
+            </p>
+          </div>
+        </section>
+
+        <!-- Units / money toggle -->
+        <div class="score__toolbar">
+          <span class="score__muted">{{ $t('score.showBy') }}</span>
+          <v-btn-toggle
+            v-model="mode"
+            mandatory
+            density="compact"
+            variant="outlined"
+          >
+            <v-btn value="units">
+              {{ $t('score.byItems') }}
+            </v-btn>
+            <v-btn value="spend">
+              {{ $t('score.bySpend') }}
+            </v-btn>
+          </v-btn-toggle>
+        </div>
+
+        <!-- One chart per category -->
+        <h2 class="score__section-title">
+          {{ $t('score.sections.nutrition') }}
+        </h2>
+        <div class="score__grid">
+          <CategoryChart
+            kind="nutriscore"
+            :title="$t('score.nutriscore')"
+            :info="$t('score.nutriscoreInfo')"
+            :chart="score.categories.nutriscore"
+            :mode="mode"
+            :currency="score.currency"
+          />
+          <CategoryChart
+            kind="nova"
+            :title="$t('score.nova')"
+            :info="$t('score.novaInfo')"
+            :chart="score.categories.nova"
+            :mode="mode"
+            :currency="score.currency"
+          />
+        </div>
+
+        <h2 class="score__section-title">
+          {{ $t('score.sections.environment') }}
+        </h2>
+        <div class="score__grid">
+          <CategoryChart
+            kind="greenScore"
+            :title="$t('score.greenScore')"
+            :info="$t('score.greenScoreInfo')"
+            :chart="score.categories.greenScore"
+            :mode="mode"
+            :currency="score.currency"
+          />
+        </div>
+
+        <!-- Spending -->
+        <h2 class="score__section-title">
+          {{ $t('score.sections.spending') }}
+        </h2>
+        <div class="score__stats">
+          <div class="score__card">
+            <p class="score__muted">
+              {{ $t('score.totalSpent') }}
+            </p>
+            <p class="score__stat">
+              {{ formatMoney(score.totalSpend) }}
+            </p>
+            <p
+              v-if="score.unpricedCount"
+              class="score__muted"
+            >
+              {{ $t('score.unpriced', score.unpricedCount) }}
+            </p>
+          </div>
+          <div class="score__card">
+            <p class="score__muted">
+              {{ $t('score.ultraProcessed') }}
+            </p>
+            <p class="score__stat">
+              {{ formatPercent(score.ultraProcessedShare) }}
+            </p>
+            <p class="score__muted">
+              {{ $t('score.ultraProcessedHint') }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Best / worst -->
+        <div
+          v-if="score.best.length"
+          class="score__grid"
+        >
+          <section class="score__card">
+            <h2 class="score__list-title">
+              {{ $t('score.best') }}
+            </h2>
+            <ul class="score__list">
+              <li
+                v-for="item in score.best"
+                :key="item.id"
+              >
+                <span>{{ item.name }}</span>
+                <ScoreBadge
+                  kind="global"
+                  :value="letterOf(item.score)"
+                />
+              </li>
+            </ul>
+          </section>
+          <section
+            v-if="score.worst.length"
+            class="score__card"
+          >
+            <h2 class="score__list-title">
+              {{ $t('score.worst') }}
+            </h2>
+            <ul class="score__list">
+              <li
+                v-for="item in score.worst"
+                :key="item.id"
+              >
+                <span>{{ item.name }}</span>
+                <ScoreBadge
+                  kind="global"
+                  :value="letterOf(item.score)"
+                />
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <!-- Items -->
+        <h2 class="score__section-title">
+          {{ $t('score.sections.items') }}
+        </h2>
+        <ul class="score__items">
+          <li
+            v-for="item in cleanedItems"
+            :key="item.id"
+            class="score__item"
+          >
+            <div class="score__item-main">
+              <span class="score__item-name">{{ item.name }}</span>
+              <span class="score__item-price">
+                {{ item.lineTotal === null ? $t('score.noPrice') : formatMoney(item.lineTotal) }}
+              </span>
+            </div>
+            <div class="score__item-meta">
+              <span
+                v-if="item.quantity > 1 && item.unitPrice !== null"
+                class="score__muted"
+              >
+                {{ $t('score.itemQuantity', { quantity: item.quantity, price: formatMoney(item.unitPrice) }) }}
+              </span>
+              <span class="score__item-badges">
+                <ScoreBadge
+                  kind="nutriscore"
+                  :value="item.nutriscore"
+                />
+                <ScoreBadge
+                  kind="nova"
+                  :value="item.nova"
+                />
+                <ScoreBadge
+                  kind="greenScore"
+                  :value="item.greenScore"
+                />
+              </span>
+            </div>
+          </li>
+        </ul>
+      </template>
+
+      <div class="score__actions">
+        <v-btn
+          variant="outlined"
+          prepend-icon="mdi-arrow-left"
+          @click="goBack"
+        >
+          {{ $t('score.back') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          prepend-icon="mdi-line-scan"
+          @click="scanAnother"
+        >
+          {{ $t('score.scanAnother') }}
+        </v-btn>
+      </div>
+    </div>
+  </main>
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
+import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
+import { cleanItems, computeScore } from '@/utils/score'
+import ScoreBadge from '@/components/ScoreBadge.vue'
+import CategoryChart from '@/components/CategoryChart.vue'
+
+// Same thresholds as the global mark in utils/score.js
+const LETTER_THRESHOLDS = [[80, 'a'], [60, 'b'], [40, 'c'], [20, 'd'], [0, 'e']]
 
 export default {
   name: 'Score',
+  components: {
+    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')),
+    ScoreBadge,
+    CategoryChart
+  },
+  data() {
+    return {
+      mode: 'units'
+    }
+  },
+  computed: {
+    ...mapStores(useAppStore),
+    receipt() {
+      return this.appStore.getReceipt
+    },
+    items() {
+      return this.appStore.getItems
+    },
+    score() {
+      return computeScore(this.items, this.receipt.currency || 'EUR')
+    },
+    cleanedItems() {
+      return cleanItems(this.items)
+    },
+    isMock() {
+      return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock')
+    },
+    isLoading() {
+      return ['uploading', 'extracting'].includes(this.receipt.status)
+    },
+    hasError() {
+      return this.receipt.status === 'error'
+    }
+  },
   mounted() {
     this.ensureReceipt()
   },
@@ -25,9 +340,258 @@ export default {
         store.loadMockReceipt()
       }
     },
+    formatMoney(value) {
+      return new Intl.NumberFormat(this.$i18n.locale, {
+        style: 'currency',
+        currency: this.receipt.currency || 'EUR'
+      }).format(value)
+    },
+    formatPercent(value) {
+      return new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 0 }).format(value)
+    },
+    letterOf(value) {
+      if (value === null || value === undefined) return null
+      return LETTER_THRESHOLDS.find(([min]) => value >= min)[1]
+    },
     goBack() {
       this.$router.push({ name: 'review' })
+    },
+    scanAnother() {
+      this.$router.push({ name: 'upload' })
     }
   }
 }
 </script>
+
+<style scoped>
+.score {
+  min-height: 100dvh;
+  padding: 1.5rem;
+  color: var(--smr-cream, #F7FBF4);
+  background:
+    radial-gradient(90% 70% at 80% 0%, rgba(31, 107, 74, 0.35), transparent 55%),
+    linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+}
+
+.score__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.score__brand {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.score__content {
+  width: min(64rem, 100%);
+  margin: 0 auto;
+}
+
+.score__title {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.score__alert {
+  margin-bottom: 1.25rem;
+}
+
+.score__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.score__state p {
+  margin: 0;
+}
+
+.score__state-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.score__card {
+  padding: 1.25rem;
+  border: 1px solid rgba(247, 251, 244, 0.12);
+  border-radius: 1rem;
+  background: rgba(14, 36, 28, 0.55);
+}
+
+.score__card p {
+  margin: 0;
+}
+
+.score__global {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.score__global-label {
+  font-weight: 600;
+}
+
+.score__global-value {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.score__global-value span {
+  margin-left: 0.25rem;
+  font-size: 1rem;
+  color: rgba(247, 251, 244, 0.6);
+}
+
+.score__global-value--empty {
+  font-size: 1.1rem;
+}
+
+.score__muted {
+  color: rgba(247, 251, 244, 0.65);
+  font-size: 0.85rem;
+}
+
+.score__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.score__toolbar :deep(.v-btn) {
+  color: var(--smr-cream, #F7FBF4);
+}
+
+.score__toolbar :deep(.v-btn--active) {
+  color: var(--smr-ink, #0E241C);
+  background: var(--smr-mist, #E8F2E6);
+}
+
+.score__section-title {
+  margin: 1.75rem 0 0.75rem;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.score__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1rem;
+}
+
+.score__grid + .score__grid {
+  margin-top: 1rem;
+}
+
+.score__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.score__stat {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.score__list-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.score__list,
+.score__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.score__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.score__item {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(247, 251, 244, 0.1);
+}
+
+.score__item-main,
+.score__item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.score__item-name {
+  font-weight: 600;
+}
+
+.score__item-price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.score__item-meta {
+  margin-top: 0.35rem;
+}
+
+.score__item-badges {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.score__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+@media (max-width: 600px) {
+  .score {
+    padding: 1rem;
+  }
+
+  .score__global-value {
+    font-size: 2rem;
+  }
+
+  .score__stat {
+    font-size: 1.35rem;
+  }
+
+  .score__toolbar {
+    justify-content: flex-start;
+  }
+}
+</style>
