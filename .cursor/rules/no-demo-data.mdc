@@ -1,0 +1,39 @@
+---
+description: Never use demo/dummy data — only real Open Prices and Open Food Facts APIs
+alwaysApply: true
+---
+
+# No Demo / Dummy Data
+
+This project must use **real APIs and real data only**.
+
+## Required
+
+- Call Open Prices (pre-prod: `prices.openfoodfacts.net`) and Open Food Facts APIs for live data
+- Persist only what the user or those APIs actually produced (receipts, validated barcodes, consent, tokens)
+- Show empty / loading / error / "unknown" states when data is missing — never invent substitutes
+
+## Forbidden
+
+- Hardcoded sample receipts, products, barcodes, scores, stores, or history
+- Mock / fake / stub API responses used as the default path in the app
+- Seed files, fixtures, or "demo mode" that populate UI with fake content
+- Placeholder objects presented as real results (e.g. Nutri-Score `"b"` with no OFF fetch)
+
+```typescript
+// ❌ BAD — fake receipt for UI
+const demoReceipt = {
+  storeName: "Demo Market",
+  items: [{ displayName: "Milk", barcode: "123", product: { nutriScoreGrade: "a" } }]
+}
+
+// ✅ GOOD — empty until APIs return data
+const items = []
+// after Open Prices extract + OFF enrich:
+// items come from API responses only
+```
+
+## Exceptions
+
+- TypeScript types / empty defaults (`null`, `[]`, `unknown`) are fine
+- Cypress E2E may intercept network **only inside tests** — never ship mock data in app runtime
