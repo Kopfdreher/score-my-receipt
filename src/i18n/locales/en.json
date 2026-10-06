@@ -2,9 +2,6 @@
   "app": {
     "name": "Score My Receipt"
   },
-  "home": {
-    "historyLink": "My History"
-  },
   "upload": {
     "title": "Scan your receipt",
     "support": "Take a photo or choose a receipt image. We’ll read the items with Open Prices and score them with Open Food Facts.",
@@ -21,10 +18,6 @@
     "title": "Receipt score",
     "teamNote": "Pair C: show Nutri-Score and related scores from the session items.",
     "back": "Back"
-  },
-  "history": {
-    "title": "My History",
-    "placeholder": "Your saved receipts will appear here."
   },
   "auth": {
     "signedInAs": "Signed in as {username}",

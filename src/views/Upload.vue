@@ -5,9 +5,6 @@
         {{ $t('app.name') }}
       </p>
       <div class="upload__header-actions">
-        <router-link class="upload__history" to="/history">
-          {{ $t('home.historyLink') }}
-        </router-link>
         <UserSessionBar />
       </div>
     </header>
@@ -101,20 +98,6 @@ export default {
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
-}
-
-.upload__history {
-  color: var(--smr-mist, #E8F2E6);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(232, 242, 230, 0.45);
-}
-
-.upload__history:hover,
-.upload__history:focus-visible {
-  color: #fff;
-  border-color: #fff;
-  outline: none;
 }
 
 .upload__hero {
