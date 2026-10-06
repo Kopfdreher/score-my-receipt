@@ -1,10 +1,12 @@
 export default {
   proofId: 'mock-proof-1',
   imagePreviewUrl: null,
-  locationOsmId: 123456,
-  locationOsmType: 'NODE',
+  locationOsmId: null,
+  locationOsmType: null,
+  locationName: null,
   date: '2026-10-01',
   currency: 'EUR',
+  contributePrices: false,
   status: 'ready',
   errorMessage: null,
   items: [
