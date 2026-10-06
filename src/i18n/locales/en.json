@@ -37,7 +37,9 @@
       "nutrition": "Nutrition",
       "environment": "Environment",
       "spending": "Spending",
-      "items": "Your items"
+      "items": "Your items",
+      "processing": "Processing & ingredients",
+      "labels": "Labels & sourcing"
     },
     "global": "Basket score",
     "nutriscore": "Nutri-Score",
@@ -57,7 +59,53 @@
     "best": "Best picks",
     "worst": "Worth swapping",
     "noPrice": "No price",
-    "itemQuantity": "{quantity} × {price}"
+    "itemQuantity": "{quantity} × {price}",
+    "message": {
+      "a": "Great basket: mostly healthy, little processed, low impact.",
+      "b": "Good basket, with a few things to improve.",
+      "c": "Average basket: some products are worth swapping.",
+      "d": "Room for improvement: many products score low.",
+      "e": "This basket scores low on health and environment.",
+      "none": "Not enough rated products to give a key message yet."
+    },
+    "detailsLoading": "Loading product details from Open Food Facts…",
+    "detailsPartial": "Some product details could not be loaded from Open Food Facts. Totals may be incomplete.",
+    "noData": "No data",
+    "knownOn": "Based on {known} of {total} items",
+    "nutrientsTitle": "In your basket",
+    "nutrients": {
+      "sugars": "Sugar",
+      "salt": "Salt",
+      "fat": "Fat",
+      "saturatedFat": "Saturated fat"
+    },
+    "additivesTitle": "Additives",
+    "additivesRisk": "{high} high risk · {moderate} moderate risk",
+    "risk": {
+      "high": "High risk",
+      "moderate": "Moderate",
+      "no": "No risk",
+      "unknown": "Not evaluated"
+    },
+    "ultraProcessedLine": "{share} of spending is ultra-processed",
+    "co2Title": "Carbon footprint",
+    "co2Value": "{kg} kg CO₂e",
+    "co2Parts": {
+      "agriculture": "Agriculture",
+      "processing": "Processing",
+      "packaging": "Packaging",
+      "transportation": "Transport",
+      "distribution": "Distribution",
+      "consumption": "Consumption"
+    },
+    "forestTitle": "Forest footprint",
+    "forestValue": "{m2} m² of forest",
+    "forestRisk": "No product flagged for deforestation risk | {n} item with a deforestation risk (e.g. palm oil) | {n} items with a deforestation risk (e.g. palm oil)",
+    "forestInfo": "Forest footprint is only computed by Open Food Facts for some ingredients (soy, eggs, poultry).",
+    "organic": "Organic",
+    "fairTrade": "Fair trade",
+    "labelCount": "{count} of {total} items",
+    "retry": "Retry"
   },
   "auth": {
     "signedInAs": "Signed in as {username}",

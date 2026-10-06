@@ -72,6 +72,7 @@ segment: { key: 'a', label: 'A', color: '#038141', units, share, spend, spendSha
 | C1.6 | Chart data per category: one segment per grade + 'unknown', with official color, units, share, € spent and share of € | ✅ done |
 | C1.7 | Best and worst items of the receipt (ranked by their own mark, the two lists never overlap) | ✅ done |
 | C1.9 | Global mark out of 100 + letter: 50 % Nutri-Score, 25 % NOVA, 25 % Green-Score, missing parts left out. **"Score formula" is out of scope in `AGENTS.md` until a pair takes it: announce to the team that Pair C takes it** | ✅ done — formula to validate with the team |
+| C1.10 | Basket details from Open Food Facts (`computeBasketDetails`): total sugar / salt / fat / saturated fat in grams, additives with EFSA risk, CO₂ total + breakdown, forest footprint + deforestation risk, organic / fair trade — each with how many items it is based on | ✅ done |
 | C1.8 | Edge cases: empty receipt, all `off: null`, `quantity` 0 or missing, `price` null | ✅ done |
 
 **How C1 checks**: run `computeScore` on `mockReceipt.js` and compare with a calculation done by hand (7 items, 3 without `off`).
@@ -90,6 +91,7 @@ segment: { key: 'a', label: 'A', color: '#038141', units, share, spend, spendSha
 | C2.6 | States: `status` `uploading` / `extracting` (loading), `error` (`errorMessage`), no items, items without score ("not enough data"), mock banner when `?mock=1` | ✅ done |
 | C2.7 | Responsive: mobile first, 2 cards per row on phones, list of cards instead of a table, test with F12 → Ctrl+Shift+M | ✅ done |
 | C2.8 | All texts in `en.json` under `score.*` only (high-conflict file: pull before editing) | ✅ done |
+| C2.10 | Page order: summary + key message → Nutrition (Nutri-Score + nutrient totals) → Processing & ingredients (NOVA + additives) → Environment (Green-Score + CO₂ + forest) → Labels & sourcing → Spending. OFF details fetched by the page (one request at a time, retries, "Retry" button), kept in the page, not in the store | ✅ done |
 | C2.9 | Navigation: "Back" to `/review`, "Scan another receipt" goes to `/upload` (does **not** call `resetReceipt`: Pair C only reads the session) | ✅ done |
 
 **How C2 checks**: `yarn dev`, open `/score?mock=1` on desktop and in phone mode.
