@@ -1,0 +1,311 @@
+{
+  "en:apples": {
+    "referenceId": "ciqual:13039|agribalyse:13039",
+    "referenceName": "Apple, pulp and peel, raw",
+    "nutriments": {
+      "sugars_100g": 9.35,
+      "fat_100g": 0.25,
+      "salt_100g": 0.0037,
+      "saturated-fat_100g": 0.052
+    },
+    "co2PerKg": 0.408,
+    "ciqualCode": "13039",
+    "agribalyseCode": "13039"
+  },
+  "en:fresh-apples": {
+    "referenceId": "ciqual:13039|agribalyse:13039",
+    "referenceName": "Apple, pulp and peel, raw",
+    "nutriments": {
+      "sugars_100g": 9.35,
+      "fat_100g": 0.25,
+      "salt_100g": 0.0037,
+      "saturated-fat_100g": 0.052
+    },
+    "co2PerKg": 0.408,
+    "ciqualCode": "13039",
+    "agribalyseCode": "13039"
+  },
+  "en:strawberries": {
+    "referenceId": "ciqual:13014|agribalyse:13014_1",
+    "referenceName": "Strawberry, raw",
+    "nutriments": {
+      "sugars_100g": 5.6
+    },
+    "co2PerKg": 0.533,
+    "ciqualCode": "13014",
+    "agribalyseCode": "13014_1"
+  },
+  "en:fresh-strawberries": {
+    "referenceId": "ciqual:13014|agribalyse:13014_1",
+    "referenceName": "Strawberry, raw",
+    "nutriments": {
+      "sugars_100g": 5.6
+    },
+    "co2PerKg": 0.533,
+    "ciqualCode": "13014",
+    "agribalyseCode": "13014_1"
+  },
+  "en:grapes": {
+    "referenceId": "ciqual:13112|agribalyse:13112",
+    "referenceName": "Grape, raw",
+    "nutriments": {
+      "sugars_100g": 15.5,
+      "fat_100g": 0.16,
+      "salt_100g": 0.005,
+      "saturated-fat_100g": 0.054
+    },
+    "co2PerKg": 0.51,
+    "ciqualCode": "13112",
+    "agribalyseCode": "13112"
+  },
+  "en:fresh-grapes": {
+    "referenceId": "ciqual:13112|agribalyse:13112",
+    "referenceName": "Grape, raw",
+    "nutriments": {
+      "sugars_100g": 15.5,
+      "fat_100g": 0.16,
+      "salt_100g": 0.005,
+      "saturated-fat_100g": 0.054
+    },
+    "co2PerKg": 0.51,
+    "ciqualCode": "13112",
+    "agribalyseCode": "13112"
+  },
+  "en:bananas": {
+    "referenceId": "ciqual:13005|agribalyse:13005",
+    "referenceName": "Banana, pulp, raw",
+    "nutriments": {
+      "sugars_100g": 15.6
+    },
+    "co2PerKg": 0.909,
+    "ciqualCode": "13005",
+    "agribalyseCode": "13005"
+  },
+  "en:fresh-bananas": {
+    "referenceId": "ciqual:13005|agribalyse:13005",
+    "referenceName": "Banana, pulp, raw",
+    "nutriments": {
+      "sugars_100g": 15.6
+    },
+    "co2PerKg": 0.909,
+    "ciqualCode": "13005",
+    "agribalyseCode": "13005"
+  },
+  "en:peppers": {
+    "referenceId": "ciqual:11081|agribalyse:None",
+    "referenceName": "Spice (average)",
+    "nutriments": {
+      "sugars_100g": 2.14,
+      "fat_100g": 10.4,
+      "salt_100g": 0.048,
+      "saturated-fat_100g": 4.84
+    },
+    "co2PerKg": null,
+    "ciqualCode": "11081",
+    "agribalyseCode": null
+  },
+  "en:mushrooms": {
+    "referenceId": "ciqual:20010|agribalyse:None",
+    "referenceName": "Mushroom, all types, raw",
+    "nutriments": {
+      "sugars_100g": 1.43,
+      "fat_100g": 0.23,
+      "salt_100g": 0.012,
+      "saturated-fat_100g": 0.055
+    },
+    "co2PerKg": null,
+    "ciqualCode": "20010",
+    "agribalyseCode": null
+  },
+  "en:fresh-mushrooms": {
+    "referenceId": "ciqual:20010|agribalyse:None",
+    "referenceName": "Mushroom, all types, raw",
+    "nutriments": {
+      "sugars_100g": 1.43,
+      "fat_100g": 0.23,
+      "salt_100g": 0.012,
+      "saturated-fat_100g": 0.055
+    },
+    "co2PerKg": null,
+    "ciqualCode": "20010",
+    "agribalyseCode": null
+  },
+  "en:broccoli": {
+    "referenceId": "ciqual:20057|agribalyse:20057",
+    "referenceName": "Broccoli, raw",
+    "nutriments": {
+      "sugars_100g": 1.7,
+      "fat_100g": 0.48,
+      "salt_100g": 0.048,
+      "saturated-fat_100g": 0.061
+    },
+    "co2PerKg": 0.951,
+    "ciqualCode": "20057",
+    "agribalyseCode": "20057"
+  },
+  "en:fresh-broccoli": {
+    "referenceId": "ciqual:20057|agribalyse:20057",
+    "referenceName": "Broccoli, raw",
+    "nutriments": {
+      "sugars_100g": 1.7,
+      "fat_100g": 0.48,
+      "salt_100g": 0.048,
+      "saturated-fat_100g": 0.061
+    },
+    "co2PerKg": 0.951,
+    "ciqualCode": "20057",
+    "agribalyseCode": "20057"
+  },
+  "en:carrots": {
+    "referenceId": "ciqual:20009|agribalyse:20009",
+    "referenceName": "Carrot, raw",
+    "nutriments": {
+      "sugars_100g": 6.0,
+      "salt_100g": 0.11
+    },
+    "co2PerKg": 0.396,
+    "ciqualCode": "20009",
+    "agribalyseCode": "20009"
+  },
+  "en:fresh-carrots": {
+    "referenceId": "ciqual:20009|agribalyse:20009",
+    "referenceName": "Carrot, raw",
+    "nutriments": {
+      "sugars_100g": 6.0,
+      "salt_100g": 0.11
+    },
+    "co2PerKg": 0.396,
+    "ciqualCode": "20009",
+    "agribalyseCode": "20009"
+  },
+  "en:cauliflowers": {
+    "referenceId": "ciqual:20016|agribalyse:20016",
+    "referenceName": "Cauliflower, raw",
+    "nutriments": {
+      "sugars_100g": 1.7,
+      "fat_100g": 0.7,
+      "salt_100g": 0.015,
+      "saturated-fat_100g": 0.24
+    },
+    "co2PerKg": 0.721,
+    "ciqualCode": "20016",
+    "agribalyseCode": "20016"
+  },
+  "en:fresh-cauliflowers": {
+    "referenceId": "ciqual:20016|agribalyse:20016",
+    "referenceName": "Cauliflower, raw",
+    "nutriments": {
+      "sugars_100g": 1.7,
+      "fat_100g": 0.7,
+      "salt_100g": 0.015,
+      "saturated-fat_100g": 0.24
+    },
+    "co2PerKg": 0.721,
+    "ciqualCode": "20016",
+    "agribalyseCode": "20016"
+  },
+  "en:cucumbers": {
+    "referenceId": "ciqual:20019|agribalyse:20019",
+    "referenceName": "Cucumber, pulp and peel, raw",
+    "nutriments": {
+      "sugars_100g": 1.67,
+      "fat_100g": 0.11,
+      "salt_100g": 0.012,
+      "saturated-fat_100g": 0.035
+    },
+    "co2PerKg": 0.512,
+    "ciqualCode": "20019",
+    "agribalyseCode": "20019"
+  },
+  "en:fresh-cucumbers": {
+    "referenceId": "ciqual:20019|agribalyse:20019",
+    "referenceName": "Cucumber, pulp and peel, raw",
+    "nutriments": {
+      "sugars_100g": 1.67,
+      "fat_100g": 0.11,
+      "salt_100g": 0.012,
+      "saturated-fat_100g": 0.035
+    },
+    "co2PerKg": 0.512,
+    "ciqualCode": "20019",
+    "agribalyseCode": "20019"
+  },
+  "en:lettuces": {
+    "referenceId": "ciqual:20031|agribalyse:20031",
+    "referenceName": "Lettuce, raw",
+    "nutriments": {
+      "sugars_100g": 0.73,
+      "fat_100g": 0.2,
+      "salt_100g": 0.021,
+      "saturated-fat_100g": 0.021
+    },
+    "co2PerKg": 0.868,
+    "ciqualCode": "20031",
+    "agribalyseCode": "20031"
+  },
+  "en:onions": {
+    "referenceId": "ciqual:20034|agribalyse:20034",
+    "referenceName": "Onion, raw",
+    "nutriments": {
+      "sugars_100g": 4.8,
+      "fat_100g": 0.62,
+      "salt_100g": 0.098,
+      "saturated-fat_100g": 0.2
+    },
+    "co2PerKg": 0.421,
+    "ciqualCode": "20034",
+    "agribalyseCode": "20034"
+  },
+  "en:fresh-onions": {
+    "referenceId": "ciqual:20034|agribalyse:20034",
+    "referenceName": "Onion, raw",
+    "nutriments": {
+      "sugars_100g": 4.8,
+      "fat_100g": 0.62,
+      "salt_100g": 0.098,
+      "saturated-fat_100g": 0.2
+    },
+    "co2PerKg": 0.421,
+    "ciqualCode": "20034",
+    "agribalyseCode": "20034"
+  },
+  "en:fresh-sweet-potatoes": {
+    "referenceId": "ciqual:4101|agribalyse:4101",
+    "referenceName": "Sweet potato, raw",
+    "nutriments": {
+      "sugars_100g": 5.64,
+      "fat_100g": 0.15,
+      "salt_100g": 0.098,
+      "saturated-fat_100g": 0.064
+    },
+    "co2PerKg": 0.334,
+    "ciqualCode": "4101",
+    "agribalyseCode": "4101"
+  },
+  "en:tomatoes": {
+    "referenceId": "ciqual:20047|agribalyse:20047_1",
+    "referenceName": "Tomato, raw",
+    "nutriments": {
+      "sugars_100g": 2.48,
+      "fat_100g": 0.26,
+      "salt_100g": 0.0081,
+      "saturated-fat_100g": 0.056
+    },
+    "co2PerKg": 0.75,
+    "ciqualCode": "20047",
+    "agribalyseCode": "20047_1"
+  },
+  "en:fresh-tomatoes": {
+    "referenceId": "ciqual:20047|agribalyse:20047_1",
+    "referenceName": "Tomato, raw",
+    "nutriments": {
+      "sugars_100g": 2.48,
+      "fat_100g": 0.26,
+      "salt_100g": 0.0081,
+      "saturated-fat_100g": 0.056
+    },
+    "co2PerKg": 0.75,
+    "ciqualCode": "20047",
+    "agribalyseCode": "20047_1"
+  }
+}
