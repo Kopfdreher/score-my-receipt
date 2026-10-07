@@ -928,7 +928,7 @@ export default {
 
       this.locationSearchTimer = setTimeout(() => {
         this.searchLocations(trimmed)
-      }, 350)
+      }, 1000)
     },
     searchLocations(query) {
       this.locationSearching = true
