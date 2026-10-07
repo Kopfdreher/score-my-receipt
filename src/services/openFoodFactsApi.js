@@ -13,6 +13,33 @@ function buildFieldsParam(extraFields = []) {
 }
 
 export default {
+  /**
+   * Shape an OFF product into the `item.off` object used across the app.
+   */
+  toItemOff(product) {
+    return {
+      product_name: product.product_name || null,
+      nutriscore_grade: product.nutriscore_grade || null,
+      nova_group: product.nova_group || null,
+      ecoscore_grade: product.ecoscore_grade || product.environmental_score_grade || null,
+      image_front_small_url: product.image_front_small_url || null,
+      image_front_url: product.image_front_url || product.image_front_small_url || null,
+      brands: product.brands || null,
+      quantity: product.quantity || null
+    }
+  },
+
+  /**
+   * Look up several barcodes and return Map<code, product>. Never rejects.
+   */
+  fetchProductsByCode(codes = []) {
+    return this.openfoodfactsProductsSearch(codes)
+      .then((data) => new Map(
+        ((data && data.products) || []).map((product) => [String(product.code), product])
+      ))
+      .catch(() => new Map())
+  },
+
   openfoodfactsProductSearch(code) {
     const fields = buildFieldsParam()
     const url = `${constants.OFF_API_URL}/${encodeURIComponent(code)}.json?fields=${fields}`

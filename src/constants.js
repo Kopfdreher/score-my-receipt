@@ -23,6 +23,7 @@ export default {
   PROOF_TYPE_RECEIPT,
   PRICE_TYPE_PRODUCT: 'PRODUCT',
   PRICE_TYPE_CATEGORY: 'CATEGORY',
+  LABEL_ORGANIC: 'en:organic',
   // Fallback when Intl.supportedValuesOf('currency') is unavailable.
   CURRENCY_OPTIONS: [
     'EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'ISK', 'PLN', 'CZK', 'HUF',

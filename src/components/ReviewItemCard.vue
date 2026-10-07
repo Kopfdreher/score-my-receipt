@@ -844,13 +844,13 @@ export default {
     box-shadow: none;
   }
 
-  .review-row__pane,
-  .review-row--verified .review-row__pane {
-    background: transparent;
+  /* Keep the pane opaque so the swipe-to-delete button never shows through. */
+  .review-row__pane {
+    background: #F7FBF4;
   }
 
   .review-row--verified .review-row__pane {
-    background: rgba(76, 175, 80, 0.06);
+    background: #EEF6EC;
   }
 
   .review-row__cols {

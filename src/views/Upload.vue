@@ -51,6 +51,7 @@
 <script>
 import { useAppStore } from '@/store'
 import openPricesApi from '@/services/openPricesApi'
+import openFoodFactsApi from '@/services/openFoodFactsApi'
 
 const POLL_INTERVAL_MS = 2000
 const POLL_TRIES = 15
@@ -69,6 +70,7 @@ export default {
     statusMessage() {
       if (this.phase === 'uploading') return this.$t('upload.uploading')
       if (this.phase === 'extracting') return this.$t('upload.extracting')
+      if (this.phase === 'enriching') return this.$t('upload.enriching')
       return this.$t('upload.support')
     }
   },
@@ -104,18 +106,22 @@ export default {
             .then((rows) => ({ proofId, rows }))
         })
         .then(({ proofId, rows }) => {
-          store.setReceiptFromCapture({
-            proofId,
-            date,
-            currency,
-            locationOsmId: null,
-            locationOsmType: null,
-            imagePreviewUrl,
-            status: rows.length ? 'ready' : 'error',
-            errorMessage: rows.length ? null : this.$t('upload.error'),
-            items: rows.map((row) => this.mapReceiptItem(row))
+          const items = rows.map((row) => this.mapReceiptItem(row))
+          this.phase = 'enriching'
+          return this.attachProductDetails(items).then(() => {
+            store.setReceiptFromCapture({
+              proofId,
+              date,
+              currency,
+              locationOsmId: null,
+              locationOsmType: null,
+              imagePreviewUrl,
+              status: rows.length ? 'ready' : 'error',
+              errorMessage: rows.length ? null : this.$t('upload.error'),
+              items
+            })
+            return this.$router.push({ name: 'review' })
           })
-          return this.$router.push({ name: 'review' })
         })
         .catch(() => {
           URL.revokeObjectURL(imagePreviewUrl)
@@ -124,6 +130,21 @@ export default {
         })
         .finally(() => {
           this.busy = false
+        })
+    },
+    // Fetch Open Food Facts photo + details for every barcode so Adjust opens ready.
+    attachProductDetails(items) {
+      const withBarcode = items.filter((item) => item.barcode)
+      if (!withBarcode.length) return Promise.resolve()
+      return openFoodFactsApi.fetchProductsByCode(withBarcode.map((item) => item.barcode))
+        .then((byCode) => {
+          withBarcode.forEach((item) => {
+            const product = byCode.get(String(item.barcode))
+            if (!product) return
+            item.off = openFoodFactsApi.toItemOff(product)
+            item.categoryTag = null
+            if (!item.name && product.product_name) item.name = product.product_name
+          })
         })
     },
     pollReceiptItems(proofId, attempt) {

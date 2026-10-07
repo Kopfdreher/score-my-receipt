@@ -108,31 +108,16 @@
               {{ $t('review.itemsTitle') }}
               <span v-if="items.length" class="review__count">{{ items.length }}</span>
             </h2>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              size="small"
-              prepend-icon="mdi-cloud-download-outline"
-              :loading="fetchingProducts"
-              :disabled="!barcodeCount || fetchingProducts"
-              @click="fetchAllProductInfo"
-            >
-              {{ $t('review.fetchAllProducts') }}
-            </v-btn>
           </div>
-          <p v-if="items.length" class="review__items-hint">
+          <p v-if="items.length && !fetchingProducts" class="review__items-hint">
             {{ $t('review.itemsTapHint') }}
           </p>
-          <v-alert
-            v-if="fetchMessage"
-            class="mb-2"
-            :type="fetchMessageType"
-            variant="tonal"
-            density="compact"
-            :text="fetchMessage"
-          />
+          <div v-if="fetchingProducts" class="review__loading" role="status">
+            <v-progress-circular indeterminate color="primary" size="28" width="3" />
+            <p>{{ $t('review.loadingProducts') }}</p>
+          </div>
 
-          <div v-if="items.length" class="review__table-wrap">
+          <div v-else-if="items.length" class="review__table-wrap">
             <table class="review__table">
               <thead class="review__thead">
                 <tr>
@@ -416,6 +401,42 @@
             </div>
           </div>
 
+          <div v-if="showPreviewExtras" class="review-preview__extras">
+            <div class="review-preview__origin">
+              <p class="review-preview__match-label">
+                {{ $t('review.origin') }}
+              </p>
+              <v-autocomplete
+                v-model:search="originSearch"
+                :model-value="previewItem.originTag"
+                :items="filteredOriginOptions"
+                item-title="title"
+                item-value="value"
+                clearable
+                no-filter
+                auto-select-first
+                variant="outlined"
+                density="compact"
+                hide-details
+                :placeholder="$t('review.originPlaceholder')"
+                :no-data-text="$t('review.originNoMatch')"
+                class="review-preview__origin-field"
+                @update:model-value="onPreviewOriginChange"
+                @update:search="onOriginSearch"
+              />
+            </div>
+            <v-switch
+              :model-value="Boolean(previewItem.organic)"
+              :label="$t('review.organic')"
+              color="primary"
+              density="compact"
+              hide-details
+              inset
+              class="review-preview__organic"
+              @update:model-value="onPreviewOrganicChange"
+            />
+          </div>
+
           <div
             v-if="previewMatchedName && !previewCorrecting && !isPreviewCategoryItem"
             class="review-preview__match"
@@ -597,7 +618,7 @@
         variant="flat"
         class="review__dock-cta"
         append-icon="mdi-arrow-right"
-        :disabled="!items.length || contributing"
+        :disabled="!items.length || contributing || fetchingProducts"
         :loading="contributing || savingScored"
         @click="goNext"
       >
@@ -613,6 +634,7 @@ import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import openFoodFactsCategories from '@/services/openFoodFactsCategories'
+import openFoodFactsOrigins from '@/services/openFoodFactsOrigins'
 import openStreetMapApi from '@/services/openStreetMapApi'
 import openPricesApi from '@/services/openPricesApi'
 import constants from '@/constants'
@@ -637,8 +659,6 @@ export default {
       scannerOpen: false,
       scanningItemId: null,
       fetchingProducts: false,
-      fetchMessage: null,
-      fetchMessageType: 'info',
       previewOpen: false,
       previewItemId: null,
       previewCorrecting: false,
@@ -655,8 +675,10 @@ export default {
       selectedLocation: null,
       contributing: false,
       contributeMessage: null,
+      contributeDetail: null,
       contributeMessageType: 'info',
       categorySearch: '',
+      originSearch: '',
       categoryImageLoading: false,
       categoryImageMessage: null,
       swipeOpenItemId: null,
@@ -696,9 +718,6 @@ export default {
     items() {
       return this.appStore.getItems
     },
-    barcodeCount() {
-      return this.items.filter((item) => item.barcode).length
-    },
     previewItem() {
       if (!this.previewItemId) return null
       return this.items.find((item) => item.id === this.previewItemId) || null
@@ -719,6 +738,13 @@ export default {
       const matched = this.normalizeForCompare(this.previewMatchedName)
       if (!receipt || !matched) return false
       return receipt !== matched && !receipt.includes(matched) && !matched.includes(receipt)
+    },
+    // Origin and organic only apply to items without a barcode (category prices).
+    showPreviewExtras() {
+      return Boolean(this.previewItem && !this.previewItem.barcode)
+    },
+    filteredOriginOptions() {
+      return openFoodFactsOrigins.filterOriginOptions(this.originSearch)
     },
     filteredCategoryOptions() {
       // Keep the full OFF list outside Vue reactive state; only expose the filtered slice.
@@ -820,6 +846,7 @@ export default {
       && window.matchMedia('(min-width: 960px)').matches
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
+    this.autoFetchMissingProducts()
   },
   unmounted() {
     if (this.locationSearchTimer) {
@@ -1062,45 +1089,17 @@ export default {
           // Keep the barcode even if OFF lookup fails.
         })
     },
-    fetchAllProductInfo() {
-      const codes = this.items
-        .map((item) => item.barcode)
-        .filter(Boolean)
-
-      if (!codes.length) {
-        this.fetchMessageType = 'warning'
-        this.fetchMessage = this.$t('review.fetchAllMissing')
-        return
-      }
-
+    // Barcodes without Open Food Facts details are loaded before the list is shown.
+    autoFetchMissingProducts() {
+      const missing = this.items.filter((item) => item.barcode && !item.off)
+      if (!missing.length) return
       this.fetchingProducts = true
-      this.fetchMessage = null
-
-      openFoodFactsApi.openfoodfactsProductsSearch(codes)
-        .then((data) => {
-          const products = (data && data.products) || []
-          const byCode = new Map(
-            products.map((product) => [String(product.code), product])
-          )
-
-          let matched = 0
-          this.items.forEach((item) => {
-            if (!item.barcode) return
+      openFoodFactsApi.fetchProductsByCode(missing.map((item) => item.barcode))
+        .then((byCode) => {
+          missing.forEach((item) => {
             const product = byCode.get(String(item.barcode))
-            if (!product) return
-            this.applyProductToItem(item.id, product)
-            matched += 1
+            if (product) this.applyProductToItem(item.id, product)
           })
-
-          this.fetchMessageType = matched ? 'success' : 'warning'
-          this.fetchMessage = this.$t('review.fetchAllResult', {
-            matched,
-            total: codes.length
-          })
-        })
-        .catch(() => {
-          this.fetchMessageType = 'error'
-          this.fetchMessage = this.$t('review.fetchAllError')
         })
         .finally(() => {
           this.fetchingProducts = false
@@ -1113,16 +1112,7 @@ export default {
       const patch = {
         categoryTag: null,
         noBarcodeAvailable: false,
-        off: {
-          product_name: product.product_name || null,
-          nutriscore_grade: product.nutriscore_grade || null,
-          nova_group: product.nova_group || null,
-          ecoscore_grade: product.ecoscore_grade || product.environmental_score_grade || null,
-          image_front_small_url: product.image_front_small_url || null,
-          image_front_url: product.image_front_url || product.image_front_small_url || null,
-          brands: product.brands || null,
-          quantity: product.quantity || null
-        }
+        off: openFoodFactsApi.toItemOff(product)
       }
 
       // Keep receipt OCR text when present; only fill empty names from OFF.
@@ -1210,6 +1200,18 @@ export default {
         .finally(() => {
           this.categoryImageLoading = false
         })
+    },
+    onOriginSearch(query) {
+      this.originSearch = query || ''
+    },
+    onPreviewOriginChange(value) {
+      if (!this.previewItemId) return
+      this.onUpdateItem(this.previewItemId, { originTag: value || null })
+      this.originSearch = value ? (openFoodFactsOrigins.getOriginName(value) || '') : ''
+    },
+    onPreviewOrganicChange(value) {
+      if (!this.previewItemId) return
+      this.onUpdateItem(this.previewItemId, { organic: Boolean(value) })
     },
     onCategorySearch(query) {
       this.categorySearch = query || ''
@@ -1308,6 +1310,7 @@ export default {
         this.previewPhotoMessage = null
         this.previewItemId = null
         this.categorySearch = ''
+        this.originSearch = ''
         this.categoryImageLoading = false
         this.categoryImageMessage = null
       }
@@ -1331,6 +1334,9 @@ export default {
       this.categoryImageMessage = null
       this.categorySearch = item?.categoryTag
         ? (openFoodFactsCategories.getCategoryName(item.categoryTag) || '')
+        : ''
+      this.originSearch = item?.originTag
+        ? (openFoodFactsOrigins.getOriginName(item.originTag) || '')
         : ''
     },
     openGalleryPhotoPicker() {
@@ -1431,6 +1437,13 @@ export default {
         payload.proof_id = this.receipt.proofId
       }
 
+      if (!item.barcode && item.originTag) {
+        payload.origins_tags = [item.originTag]
+      }
+      if (!item.barcode && item.organic) {
+        payload.labels_tags = [constants.LABEL_ORGANIC]
+      }
+
       if (item.barcode) {
         payload.type = constants.PRICE_TYPE_PRODUCT
         payload.product_code = String(item.barcode)
@@ -1457,7 +1470,9 @@ export default {
         payload.date,
         payload.location_osm_id,
         payload.location_osm_type,
-        payload.price_per || ''
+        payload.price_per || '',
+        (payload.origins_tags || []).join(','),
+        (payload.labels_tags || []).join(',')
       ].join('|')
     },
     itemPriceAlreadySent(item) {
@@ -1467,8 +1482,25 @@ export default {
       if (!keys.length) return false
       return keys.includes(this.pricePayloadKey(this.buildPricePayload(item)))
     },
+    // Turn an Open Prices / network failure into something readable.
+    describeContributeError(error) {
+      if (error && typeof error.status === 'number') {
+        const detail = error.data && error.data.detail
+        let text = ''
+        if (Array.isArray(detail)) {
+          text = detail
+            .map((entry) => `${(entry.loc || []).slice(1).join('.')}: ${entry.msg}`)
+            .join('; ')
+        } else if (typeof detail === 'string') {
+          text = detail
+        }
+        return `${error.status}${text ? ` ${text}` : ''}`
+      }
+      return error && error.message ? error.message : this.$t('review.contributeUnknownError')
+    },
     sendContributePrices() {
       this.contributeMessage = null
+      this.contributeDetail = null
 
       if (!this.appStore.user?.token) {
         this.contributeMessageType = 'warning'
@@ -1531,6 +1563,13 @@ export default {
 
           const sent = succeededKeys.size
           const failed = results.length - sent
+          const reasons = results
+            .filter((result) => result.status === 'rejected')
+            .map((result) => this.describeContributeError(result.reason))
+          if (reasons.length) {
+            console.error('Open Prices rejected price(s):', results.filter((r) => r.status === 'rejected').map((r) => r.reason))
+          }
+          this.contributeDetail = reasons.length ? [...new Set(reasons)].join(' · ') : null
           if (!failed) {
             this.contributeMessageType = 'success'
             this.contributeMessage = this.$t('review.contributeSuccess', {
@@ -1540,11 +1579,10 @@ export default {
             return
           }
           this.contributeMessageType = sent ? 'warning' : 'error'
-          this.contributeMessage = this.$t('review.contributePartial', {
-            sent,
-            total: results.length,
-            failed
-          })
+          this.contributeMessage = [
+            this.$t('review.contributePartial', { sent, total: results.length, failed }),
+            this.contributeDetail ? this.$t('review.contributeDetail', { detail: this.contributeDetail }) : null
+          ].filter(Boolean).join(' ')
         })
         .catch(() => {
           this.contributeMessageType = 'error'
@@ -1865,6 +1903,20 @@ export default {
   text-transform: none;
   letter-spacing: 0;
   font-weight: 600;
+}
+
+.review__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 0.5rem;
+  color: rgba(14, 36, 28, 0.7);
+  font-size: 0.9rem;
+}
+
+.review__loading p {
+  margin: 0;
 }
 
 .review__empty {
@@ -2235,6 +2287,29 @@ export default {
 .review-preview__qty-field :deep(.v-field) {
   border-radius: 0.5rem;
   background: #fff;
+}
+
+.review-preview__extras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(14, 36, 28, 0.1);
+  text-align: left;
+}
+
+.review-preview__origin-field {
+  margin-top: 0.3rem;
+}
+
+.review-preview__origin-field :deep(.v-field) {
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.review-preview__organic {
+  margin-left: -0.15rem;
 }
 
 .review-preview__edit,
