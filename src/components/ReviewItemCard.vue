@@ -291,7 +291,8 @@ export default {
       return this.isCategoryPriced ? '0.001' : '1'
     },
     filteredCategoryOptions() {
-      return openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
+      const options = openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
+      return openFoodFactsCategories.optionsWithSelected(options, this.item.categoryTag)
     },
     categoryLabel() {
       if (!this.item.categoryTag) return null
@@ -344,7 +345,7 @@ export default {
       handler(tag) {
         if (!tag) return
         const label = openFoodFactsCategories.getCategoryName(tag)
-        if (label && !this.categorySearch) {
+        if (label && (!this.categorySearch || this.categorySearch === tag)) {
           this.categorySearch = label
         }
       }

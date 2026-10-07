@@ -1,4 +1,3 @@
-import { defineAsyncComponent } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAppStore } from '@/store'
 
@@ -16,29 +15,29 @@ const router = createRouter({
     {
       path: '/sign-in',
       name: 'sign-in',
-      component: defineAsyncComponent(() => import('@/views/SignIn.vue')),
+      component: () => import('@/views/SignIn.vue'),
       meta: { requiresAnonymous: true }
     },
     {
       path: '/upload',
       name: 'upload',
-      component: defineAsyncComponent(() => import('@/views/Upload.vue')),
+      component: () => import('@/views/Upload.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/review',
       name: 'review',
-      component: defineAsyncComponent(() => import('@/views/Review.vue'))
+      component: () => import('@/views/Review.vue')
     },
     {
       path: '/score',
       name: 'score',
-      component: defineAsyncComponent(() => import('@/views/Score.vue'))
+      component: () => import('@/views/Score.vue')
     },
     {
       path: '/history',
       name: 'history',
-      component: defineAsyncComponent(() => import('@/views/History.vue'))
+      component: () => import('@/views/History.vue')
     }
   ]
 })

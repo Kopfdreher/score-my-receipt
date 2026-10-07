@@ -78,6 +78,7 @@
     "nameMismatchHint": "Receipt text and photo may not match — check the barcode.",
     "confirmProduct": "Confirm product",
     "productConfirmed": "Product confirmed",
+    "correctBarcode": "Barcode is correct",
     "applyBarcode": "Look up barcode",
     "barcodeCorrectHint": "Enter or scan the correct barcode, then look it up.",
     "noBarcode": "No barcode",
@@ -85,7 +86,6 @@
     "noBarcodeHint": "Fresh or bulk items often have no barcode. Pick a category, or confirm that no barcode is available.",
     "noBarcodeConfirmed": "Marked as no barcode — pick and confirm a category to verify",
     "incorrectBarcode": "Incorrect barcode",
-    "correctBarcode": "Barcode is correct",
     "barcodeFieldNoBarcode": "No barcode available",
     "useCategory": "Use category",
     "confirmCategory": "Confirm category",
@@ -137,7 +137,6 @@
     "contributeNeedsProof": "Prices can only be contributed from a receipt uploaded to Open Prices.",
     "contributeNeedsDate": "Add the receipt date before contributing prices.",
     "contributeNoLines": "Each contributed line needs a price and a barcode or category.",
-    "contributeError": "Could not save prices to Open Prices. Check the lines and try again.",
     "loadMock": "Load sample items",
     "back": "Back",
     "saveDraftTitle": "Need to finish later?",
@@ -147,7 +146,7 @@
     "saveDraftError": "Could not save the draft. Check browser storage and try again.",
     "saveScoredError": "Could not save this receipt locally before scoring. Try again.",
     "nextTitle": "Ready for your Nutri-Score?",
-    "nextHint": "Continue when you are done adjusting items. This also saves the receipt in History as scored.",
+    "nextHint": "Continue when you are done adjusting items. The receipt is saved in History, and its analysis is added when ready.",
     "next": "Continue to score"
   },
   "history": {
@@ -169,7 +168,7 @@
     "untitled": "Untitled receipt",
     "untitledDated": "Receipt · {date}",
     "noReceiptDate": "no date",
-    "cardMeta": "{count} items · {currency} · {date}",
+    "cardMeta": "{count} products · {amount} · {date}",
     "openDraft": "Continue editing",
     "openScored": "Open score",
     "delete": "Delete",
@@ -182,6 +181,325 @@
     "title": "Receipt score",
     "teamNote": "Pair C: show Nutri-Score and related scores from the session items.",
     "back": "Back",
+    "mockBanner": "Sample receipt: these items are an example until you scan a real receipt.",
+    "loading": "Reading your receipt…",
+    "errorTitle": "We could not read this receipt",
+    "empty": "No items yet",
+    "emptyHint": "Scan a receipt to see what's in your basket.",
+    "scanCta": "Scan a receipt",
+    "scanAnother": "Scan another receipt",
+    "globalTitle": "Basket score",
+    "outOf": "/ 100",
+    "notEnoughData": "Not enough data to score this basket",
+    "coverage": "Scored on {scored} of {total} items",
+    "globalInfo": "50% Nutri-Score, 25% NOVA, 25% Green-Score",
+    "showBy": "Show by",
+    "byItems": "Items",
+    "bySpend": "Spending",
+    "sections": {
+      "nutrition": "Nutrition",
+      "environment": "Environment",
+      "spending": "Spending",
+      "items": "Your items",
+      "processing": "Processing & ingredients",
+      "labels": "Labels & sourcing"
+    },
+    "global": "Basket score",
+    "nutriscore": "Nutri-Score",
+    "nutriscoreInfo": "Nutritional quality, from A (best) to E",
+    "nova": "NOVA",
+    "novaInfo": "Processing level, from 1 (unprocessed) to 4 (ultra-processed)",
+    "greenScore": "Green-Score",
+    "greenScoreInfo": "Environmental impact, from A+ (lowest) to F",
+    "unknown": "Unknown",
+    "rated": "rated",
+    "itemsCount": "{n} item | {n} items",
+    "chartCoverage": "{scored} of {total} items rated",
+    "totalSpent": "Total spent",
+    "unpriced": "{n} item without price | {n} items without price",
+    "ultraProcessed": "Ultra-processed",
+    "ultraProcessedHint": "of spending on NOVA 4 products",
+    "best": "Best picks",
+    "worst": "Worth swapping",
+    "noPrice": "No price",
+    "itemQuantity": "{quantity} × {price}",
+    "message": {
+      "a": "Great basket: mostly healthy, little processed, low impact.",
+      "b": "Good basket, with a few things to improve.",
+      "c": "Average basket: some products are worth swapping.",
+      "d": "Room for improvement: many products score low.",
+      "e": "This basket scores low on health and environment.",
+      "none": "Not enough rated products to give a key message yet."
+    },
+    "detailsLoading": "Loading product details from Open Food Facts…",
+    "detailsPartial": "Some product details could not be loaded from Open Food Facts. Totals may be incomplete.",
+    "noData": "No data",
+    "knownOn": "Based on {known} of {total} items",
+    "nutrientsTitle": "In your basket",
+    "nutrients": {
+      "sugars": "Sugar",
+      "salt": "Salt",
+      "fat": "Fat",
+      "saturatedFat": "Saturated fat"
+    },
+    "additivesTitle": "Additives",
+    "additivesRisk": "{high} high risk · {moderate} moderate risk",
+    "risk": {
+      "high": "High risk",
+      "moderate": "Moderate risk",
+      "no": "No risk",
+      "unknown": "Not evaluated"
+    },
+    "ultraProcessedLine": "{share} of spending is ultra-processed",
+    "co2Title": "Carbon footprint",
+    "co2Value": "{kg} kg CO₂e",
+    "co2Parts": {
+      "agriculture": "Agriculture",
+      "processing": "Processing",
+      "packaging": "Packaging",
+      "transportation": "Transport",
+      "distribution": "Distribution",
+      "consumption": "Consumption"
+    },
+    "forestTitle": "Forest footprint",
+    "forestValue": "{m2} m² of forest",
+    "forestRisk": "No product flagged for deforestation risk | {n} item with a deforestation risk (e.g. palm oil) | {n} items with a deforestation risk (e.g. palm oil)",
+    "forestInfo": "Forest footprint is only computed by Open Food Facts for some ingredients (soy, eggs, poultry).",
+    "organic": "Organic",
+    "fairTrade": "Fair trade",
+    "labelCount": "{count} of {total} items",
+    "retry": "Retry",
+    "meaning": {
+      "nutriscore": {
+        "a": "Best nutritional quality",
+        "b": "Good nutritional quality",
+        "c": "Average nutritional quality",
+        "d": "Poor nutritional quality",
+        "e": "Lowest nutritional quality"
+      },
+      "nova": {
+        "1": "Unprocessed or minimally processed",
+        "2": "Processed culinary ingredient",
+        "3": "Processed food",
+        "4": "Ultra-processed food"
+      },
+      "greenScore": {
+        "aPlus": "Very low environmental impact",
+        "a": "Very low environmental impact",
+        "b": "Low environmental impact",
+        "c": "Moderate environmental impact",
+        "d": "High environmental impact",
+        "e": "Very high environmental impact",
+        "f": "Very high environmental impact"
+      },
+      "global": {
+        "a": "Excellent choice",
+        "b": "Good choice",
+        "c": "Average choice",
+        "d": "Poor choice",
+        "e": "Choice worth swapping"
+      },
+      "unknown": "Not rated: no data for this product",
+      "forest": {
+        "a": "No deforestation risk identified",
+        "b": "Low deforestation risk",
+        "c": "Medium deforestation risk",
+        "d": "High deforestation risk"
+      }
+    },
+    "summary": {
+      "units": "Most of your items are {grade} ({meaning}): {percent}.",
+      "spend": "Most of your spending goes to {grade} ({meaning}): {percent}.",
+      "none": "None of your items has a rating in this category."
+    },
+    "chartDescription": "{title}: {details}",
+    "itemsLegend": "Each item shows three badges: Nutri-Score (A to E), NOVA (1 to 4) and Green-Score (A+ to F). A question mark means the product is not rated.",
+    "showMore": "+{count} more",
+    "showLess": "Show less",
+    "scaleLabel": "{title} of your basket: {grade} ({meaning})",
+    "scaleNone": "{title} of your basket: not enough data",
+    "legend": "Legend",
+    "additivesFoundIn": "different additives, found in {count} of {total} products",
+    "additivesLevelCount": "{count} {level}",
+    "additivesIn": "In:",
+    "additivesShowAll": "Show all {count} additives",
+    "additivesNone": "No additives found in the products we could check.",
+    "additivesNoDetails": "Product details are not loaded yet.",
+    "riskMeaning": {
+      "high": "the European Food Safety Authority (EFSA) found a risk of eating too much of it",
+      "moderate": "EFSA found a moderate risk of eating too much of it",
+      "no": "EFSA evaluated it and found no risk of overexposure",
+      "unknown": "no EFSA overexposure evaluation available yet"
+    },
+    "ui": {
+      "eyebrow": "Your shopping, explained",
+      "title": "Inside your basket",
+      "health": "Health",
+      "environment": "Environment",
+      "processing": "Processing · NOVA",
+      "forest": "Forest footprint",
+      "rated": "rated products",
+      "productsCount": "{n} product | {n} products",
+      "coverage": "Based on {known} of {total} products",
+      "about": "About {title}",
+      "estimated": "Estimated",
+      "weight": "Known weight: {weight}",
+      "shoppingWeight": "Shopping weight",
+      "productsByGrade": "Explore grades & products",
+      "viewAdditives": "Explore additives",
+      "additives": "{additives} in {products}",
+      "withoutAdditives": "{count} products without listed additives",
+      "unknownAdditives": "Unknown for {count} products",
+      "shoppingSummary": "Your shopping",
+      "totalSpent": "Total spent",
+      "knownSpending": "Known spending",
+      "viewProducts": "View products",
+      "hideProducts": "Hide products",
+      "priceCoverage": "Prices known for {known} of {total} products",
+      "additiveMissing": "{without} without additives · {unknown} unknown",
+      "nutritionDetails": "Nutrient totals",
+      "wholeBasket": "For the quantities purchased",
+      "contributingProducts": "Products included",
+      "contribution": "{grams} · {percent} of the basket total",
+      "labels": "Organic & fair trade",
+      "closerLook": "Take a closer look",
+      "personalise": "Optional checks",
+      "remembered": "Your choices are remembered on this device.",
+      "allergenCheck": "Check allergens",
+      "nutrientFilters": "Also highlight",
+      "allergenResults": "Your allergen checks",
+      "highlights": "Products worth reviewing",
+      "highlightCount": "{count} of {total} products highlighted",
+      "noHighlights": "No products match the selected checks. Missing data is not an all-clear.",
+      "allProducts": "View all products ({count})",
+      "sortBy": "Order products by",
+      "reverseOrder": "Reverse order",
+      "sorts": {
+        "receipt": "Receipt order",
+        "review": "Highlighted products first",
+        "nutriscore": "Nutri-Score",
+        "nova": "NOVA processing level",
+        "greenScore": "Green-Score",
+        "forest": "Forest footprint",
+        "co2": "Carbon footprint",
+        "price": "Amount spent",
+        "weight": "Weight",
+        "name": "Name A–Z",
+        "salt": "Salt per 100 g/ml",
+        "sugars": "Sugar per 100 g/ml",
+        "fat": "Fat per 100 g/ml"
+      },
+      "sortOrder": {
+        "review": {
+          "normal": "Most issues first",
+          "reversed": "Fewest issues first"
+        },
+        "nutriscore": {
+          "normal": "E → A",
+          "reversed": "A → E"
+        },
+        "nova": {
+          "normal": "4 → 1",
+          "reversed": "1 → 4"
+        },
+        "greenScore": {
+          "normal": "F → A+",
+          "reversed": "A+ → F"
+        },
+        "forest": {
+          "normal": "D → A",
+          "reversed": "A → D"
+        },
+        "co2": {
+          "normal": "Highest first",
+          "reversed": "Lowest first"
+        },
+        "price": {
+          "normal": "Highest first",
+          "reversed": "Lowest first"
+        },
+        "weight": {
+          "normal": "Heaviest first",
+          "reversed": "Lightest first"
+        },
+        "name": {
+          "normal": "A → Z",
+          "reversed": "Z → A"
+        },
+        "salt": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        },
+        "sugars": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        },
+        "fat": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        }
+      },
+      "purchased": "Quantity bought: {quantity}",
+      "noSource": "No product or category source available",
+      "referenceInfo": "Category estimate using {name}. Nutrients are per 100 g of edible food; peel and other inedible parts may affect totals. Missing grades are not inferred.",
+      "glutenFreeLabels": "Among products with no gluten listed: {count} labelled gluten-free.",
+      "weightInfo": "Based on {known} of {total} products. Uses total receipt weight where supplied, otherwise package mass × quantity. Drinks sold by volume are counted as 1 ml ≈ 1 g.",
+      "liquidWeight": "{volume} (≈ 1 ml = 1 g)",
+      "basketInfo": "Charts count distinct products, not packages or weight. Repeated barcodes are merged. Loose produce with the same reference and analysis data is merged; purchased amounts still contribute to totals. Category averages are labelled Estimated. Unknown values remain unknown.",
+      "high": {
+        "sugars": "High sugar",
+        "salt": "High salt",
+        "fat": "High fat"
+      },
+      "allergenStatus": {
+        "contains": "Contains",
+        "mayContain": "May contain",
+        "unknown": "Unknown",
+        "notListed": "Not listed in available ingredients"
+      },
+      "allergens": {
+        "gluten": "Gluten",
+        "milk": "Milk",
+        "eggs": "Eggs",
+        "nuts": "Tree nuts",
+        "peanuts": "Peanuts",
+        "soybeans": "Soy",
+        "sesame-seeds": "Sesame",
+        "fish": "Fish",
+        "crustaceans": "Crustaceans",
+        "molluscs": "Molluscs",
+        "celery": "Celery",
+        "mustard": "Mustard",
+        "lupin": "Lupin",
+        "sulphur-dioxide-and-sulphites": "Sulphites"
+      },
+      "info": {
+        "nutriscore": "Published Nutri-Score grades, A–E. Each distinct product counts once; no basket average is calculated. Unknown includes products without a published grade. Select a grade to see its products.",
+        "nova": "Processing groups, 1–4. Group 4 is ultra-processed. Confirmed raw-produce references are classified as group 1 using the NOVA definition and labelled Estimated. Other missing groups stay unknown.",
+        "greenScore": "Published Green-Score grades, A+–F. Each distinct product counts once. No average or category grade is invented; unknown products stay visible. Select a grade to see its products.",
+        "forest": "Open Food Facts forest footprint 2026 grades, A–D. This describes ingredient-associated deforestation risk, not confirmed forest clearing. Only published grades are used; older or missing assessments stay unknown.",
+        "additives": "Distinct additive tags reported by Open Food Facts, and how many distinct products contain them. An additive appearing in several products counts once. Missing additive data stays unknown. This is a count, not a health-risk assessment.",
+        "nutrients": "Per-100 g or per-100 ml values × the purchased mass or volume ÷ 100. Only products with both a known value and amount are included. Fresh-produce averages come from CIQUAL 2020; less-than values and missing values are excluded rather than turned into exact numbers.",
+        "carbon": "AGRIBALYSE kg CO₂e per kg × purchased weight in kg. The estimate covers the food lifecycle and is not a measurement of your individual purchase. Products missing weight or reference data are excluded. Drinks need a known mass; volume is not assumed to equal mass.",
+        "labels": "Products with organic or fair-trade labels reported by Open Food Facts. Coverage counts products with label data. An absent label does not prove a product is uncertified.",
+        "spending": "Unit price × quantity bought, summed across receipt lines. Missing prices are excluded. Receipt extraction must supply a unit price, not a line total.",
+        "highNutrients": "Uses Open Food Facts’ published high nutrient levels based on 100 g / 100 ml, not basket totals. Missing levels are excluded. These describe food composition, not a personal medical recommendation.",
+        "allergens": "Contains uses declared allergen tags; May contain uses trace tags. Not listed requires ingredient data plus allergen and trace fields. Missing data stays Unknown. No gluten listed is not proof of suitability for coeliac disease: check packaging and gluten-free labels. We only show certification when a specific certification source is supplied.",
+        "highlights": "Nutri-Score D/E, NOVA 4 and Green-Score D/E/F are highlighted. Optional high sugar, salt and fat checks use published Open Food Facts nutrient levels. Each product appears once with all reasons. Missing data cannot clear a product."
+      },
+      "additivesCount": "{n} additive | {n} additives",
+      "glutenFreeLabel": "Labelled gluten-free",
+      "edit": "Edit",
+      "history": {
+        "title": "Saved receipts",
+        "empty": "No saved receipts yet.",
+        "unknownDate": "Receipt date unknown",
+        "open": "Open",
+        "delete": "Delete",
+        "close": "Close",
+        "error": "Could not save changes on this device. Browser storage may be full or unavailable."
+      }
+    },
     "history": "History"
   },
   "auth": {

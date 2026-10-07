@@ -27,6 +27,18 @@ export default {
     return CATEGORY_BY_ID.get(categoryId) || String(categoryId).replace(/^en:/, '')
   },
 
+  optionsWithSelected(options, categoryId) {
+    if (!categoryId || options.some((option) => option.value === categoryId)) {
+      return options
+    }
+    const title = this.getCategoryName(categoryId)
+    return [{
+      title,
+      value: categoryId,
+      searchText: `${title} ${categoryId}`.toLowerCase()
+    }, ...options]
+  },
+
   /**
    * Filter OFF categories as the user types.
    */

@@ -748,7 +748,9 @@ export default {
     },
     filteredCategoryOptions() {
       // Keep the full OFF list outside Vue reactive state; only expose the filtered slice.
-      return openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
+      const options = openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
+      const selected = this.previewItem && this.previewItem.categoryTag
+      return openFoodFactsCategories.optionsWithSelected(options, selected)
     },
     isPreviewCategoryItem() {
       if (!this.previewItem) return false
@@ -847,6 +849,7 @@ export default {
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
     this.autoFetchMissingProducts()
+    if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
   },
   unmounted() {
     if (this.locationSearchTimer) {
