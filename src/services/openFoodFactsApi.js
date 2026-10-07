@@ -133,6 +133,46 @@ export default {
   },
 
   /**
+   * Look up many barcodes in one Search-a-licious request.
+   * Returns the codes that exist, plus each code with leading zeros removed.
+   */
+  searchProductsByCodes(codes = []) {
+    const uniqueCodes = Array.from(new Set(
+      codes
+        .map((code) => String(code || '').trim())
+        .filter((code) => /^\d+$/.test(code))
+    ))
+    if (!uniqueCodes.length) return Promise.resolve(new Set())
+
+    const params = new URLSearchParams({
+      q: `code:(${uniqueCodes.join(' OR ')})`,
+      page_size: String(uniqueCodes.length),
+      fields: 'code'
+    })
+
+    return fetch(`${SEARCH_URL}?${params}`, {
+      method: 'GET'
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Search-a-licious code lookup failed (${response.status})`)
+        }
+        return response.json()
+      })
+      .then((data) => {
+        const found = new Set()
+        const hits = (data && data.hits) || []
+        hits.forEach((hit) => {
+          const code = String((hit && hit.code) || '').trim()
+          if (!/^\d+$/.test(code)) return
+          found.add(code)
+          found.add(code.replace(/^0+/, '') || '0')
+        })
+        return found
+      })
+  },
+
+  /**
    * Match a receipt line title to a product code via Search-a-licious.
    * A barcode is kept only when the receipt words appear in that product name.
    * Otherwise categoryTag comes from the closest hit.

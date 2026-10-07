@@ -114,7 +114,14 @@ export default {
         })
         .then(({ proofId, rows }) => {
           const mapped = rows.map((row) => this.mapReceiptItem(row))
-          return Promise.all(mapped.map((item) => this.matchReceiptItem(item)))
+          return openFoodFactsApi.searchProductsByCodes(mapped.map((item) => item.barcode))
+            .then((found) => mapped.map((item) => (
+              item.barcode && !this.barcodeIsKnown(item.barcode, found)
+                ? { ...item, barcode: null }
+                : item
+            )))
+            .catch(() => mapped)
+            .then((checked) => Promise.all(checked.map((item) => this.matchReceiptItem(item))))
             .then((items) => {
               store.setReceiptFromCapture({
                 proofId,
@@ -170,6 +177,11 @@ export default {
         categoryTag: source.category_tag || null,
         off: null
       }
+    },
+    barcodeIsKnown(barcode, found) {
+      const digits = String(barcode || '').trim()
+      const stripped = digits.replace(/^0+/, '') || '0'
+      return found.has(digits) || found.has(stripped)
     },
     matchReceiptItem(item) {
       if (item.barcode) return Promise.resolve(item)
