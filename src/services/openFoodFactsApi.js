@@ -25,7 +25,7 @@ const OFF_DETAIL_FIELDS = [
   'labels_tags',
   'ecoscore_data',
   'forest_footprint_data'
-].join(',')
+]
 const OFF_MAX_RETRIES = 2
 const OFF_RETRY_DELAY_MS = 3000
 
@@ -36,41 +36,61 @@ class TemporaryError extends Error {
   }
 }
 
+function buildFieldsParam(extraFields = []) {
+  const fields = new Set([
+    ...constants.OFF_PRODUCT_FIELDS.split(','),
+    ...OFF_DETAIL_FIELDS,
+    ...extraFields
+  ])
+  return Array.from(fields).filter(Boolean).join(',')
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// Shared by single and batch lookups. Keep each method's existing response shape.
+function fetchProducts(url, attempt = 0) {
+  return fetch(url, { method: 'GET', headers: OP_DEFAULT_HEADERS })
+    .then((response) => {
+      if (response.status === 404) return null
+      if (response.status === 429 || response.status >= 500) throw new TemporaryError(response.status)
+      if (!response.ok) throw new Error(`Open Food Facts ${response.status}`)
+      return response.json()
+    })
+    .catch((error) => {
+      // Some CORS failures appear as TypeError rather than exposing the HTTP status.
+      const temporary = error instanceof TemporaryError || error instanceof TypeError
+      if (temporary && attempt < OFF_MAX_RETRIES) {
+        return wait(OFF_RETRY_DELAY_MS * (attempt + 1)).then(() => fetchProducts(url, attempt + 1))
+      }
+      throw error
+    })
+}
+
 export default {
   openfoodfactsProductSearch(code) {
-    const url = `${constants.OFF_API_URL}/${code}.json`
-    return fetch(url, {
-      method: 'GET',
-      headers: OP_DEFAULT_HEADERS
-    })
-      .then((response) => response.json())
+    const fields = buildFieldsParam()
+    const url = `${constants.OFF_API_URL}/${encodeURIComponent(code)}.json?fields=${fields}`
+    return fetchProducts(url).then((data) => data || { status: 0, product: null })
   },
 
-  /**
-   * Details used by the Score page (nutrients, additives, CO₂, forest, labels, weight).
-   * Resolves with the product, or null if Open Food Facts does not know the barcode.
-   */
-  getProductDetails(code, attempt = 0) {
-    const url = `${constants.OFF_API_URL}/${code}?fields=${OFF_DETAIL_FIELDS}`
-    return fetch(url, { method: 'GET' })
-      .then((response) => {
-        if (response.status === 404) return null
-        if (response.status === 429 || response.status >= 500) throw new TemporaryError(response.status)
-        if (!response.ok) throw new Error(`Open Food Facts ${response.status}`)
-        return response.json().then((data) => (data.status === 1 ? data.product : null))
-      })
-      .catch((error) => {
-        // Rate limited, server error, or network error. A 429 from OFF has no CORS header,
-        // so the browser only shows it as a network error (TypeError). Wait and try again.
-        const temporary = error instanceof TemporaryError || error instanceof TypeError
-        if (temporary && attempt < OFF_MAX_RETRIES) {
-          return wait(OFF_RETRY_DELAY_MS * (attempt + 1)).then(() => this.getProductDetails(code, attempt + 1))
-        }
-        throw error
-      })
+  /** Product details for Score; null when the barcode is not found. */
+  getProductDetails(code) {
+    return this.openfoodfactsProductSearch(code)
+      .then((data) => data.status === 1 ? data.product : null)
+  },
+
+  /** Fetch several products, preserving Review's batch-response contract. */
+  openfoodfactsProductsSearch(codes = []) {
+    const uniqueCodes = Array.from(new Set(
+      codes.map((code) => String(code || '').trim()).filter(Boolean)
+    ))
+    if (!uniqueCodes.length) return Promise.resolve({ count: 0, products: [] })
+
+    const path = uniqueCodes.map((code) => encodeURIComponent(code)).join('+')
+    const fields = buildFieldsParam()
+    const url = `${constants.OFF_PRODUCTS_URL}/${path}.json?fields=${fields}`
+    return fetchProducts(url).then((data) => data || { count: 0, products: [] })
   }
 }
