@@ -93,31 +93,34 @@
           </div>
         </section>
 
-        <p
-          v-if="detailsStatus === 'loading'"
-          class="score__muted score__details-status"
-        >
-          <v-progress-circular
-            indeterminate
-            size="14"
-            width="2"
-          />
-          {{ $t('score.detailsLoading') }}
-        </p>
-        <p
-          v-else-if="detailsStatus === 'partial'"
-          class="score__muted score__details-status"
-        >
-          {{ $t('score.detailsPartial') }}
-          <v-btn
-            size="small"
-            variant="text"
-            prepend-icon="mdi-refresh"
-            @click="retryDetails"
+        <!-- Fixed space for the loading state, so the charts below never move -->
+        <div class="score__details-slot">
+          <p
+            v-if="detailsStatus === 'loading'"
+            class="score__muted score__details-status"
           >
-            {{ $t('score.retry') }}
-          </v-btn>
-        </p>
+            <v-progress-circular
+              indeterminate
+              size="14"
+              width="2"
+            />
+            {{ $t('score.detailsLoading') }}
+          </p>
+          <p
+            v-else-if="detailsStatus === 'partial'"
+            class="score__muted score__details-status"
+          >
+            {{ $t('score.detailsPartial') }}
+            <v-btn
+              size="small"
+              variant="text"
+              prepend-icon="mdi-refresh"
+              @click="retryDetails"
+            >
+              {{ $t('score.retry') }}
+            </v-btn>
+          </p>
+        </div>
 
         <!-- Units / money toggle -->
         <div class="score__toolbar">
@@ -655,11 +658,17 @@ export default {
   font-weight: 500;
 }
 
+.score__details-slot {
+  min-height: 2.5rem;
+  margin-top: 0.75rem;
+}
+
 .score__details-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin: 0.75rem 0 0;
+  margin: 0;
 }
 
 .score__card-title {

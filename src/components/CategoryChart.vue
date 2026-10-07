@@ -31,7 +31,7 @@
     <div class="category-chart__body">
       <div
         class="category-chart__donut-wrap"
-        @mouseleave="hovered = null"
+        @pointerleave="onPointerLeave"
       >
         <svg
           class="category-chart__donut"
@@ -63,10 +63,10 @@
             tabindex="0"
             role="button"
             :aria-label="tooltipLabel(arc.segment)"
-            @mouseenter="hovered = arc.key"
-            @focus="hovered = arc.key"
+            @pointerenter="onPointerEnter($event, arc.key)"
+            @focus="onFocus($event, arc.key)"
             @blur="hovered = null"
-            @click="hovered = hovered === arc.key ? null : arc.key"
+            @click="onArcClick($event, arc.key)"
           />
           <text
             x="21"
@@ -317,6 +317,22 @@ export default {
         ? this.expanded.filter((key) => key !== segment.key)
         : [...this.expanded, segment.key]
     },
+    // Mouse: hovering shows the info. Touch: handled by the tap (onArcClick), not by this.
+    onPointerEnter(event, key) {
+      if (event.pointerType === 'mouse') this.hovered = key
+    },
+    onPointerLeave(event) {
+      if (event.pointerType === 'mouse') this.hovered = null
+    },
+    // Keyboard (Tab) only: a tap also focuses the part, and the tap itself is handled by onArcClick
+    onFocus(event, key) {
+      if (event.target.matches(':focus-visible')) this.hovered = key
+    },
+    // Tap (or Enter key): open this part's info, or close it if it is already open
+    onArcClick(event, key) {
+      if (event.pointerType === 'mouse') this.hovered = key
+      else this.hovered = this.hovered === key ? null : key
+    },
     // One sentence for screen readers: "C, Average nutritional quality, 4 items, 36%: Yogurt plain ×4"
     tooltipLabel(segment) {
       const grade = segment.label === null ? this.$t('score.unknown') : segment.label
@@ -408,7 +424,7 @@ export default {
 .category-chart__tooltip {
   position: absolute;
   top: calc(100% + 0.5rem);
-  left: 50%;
+  left: 0; /* opens to the right: the donut sits at the left edge of the card */
   z-index: 5;
   width: max-content;
   max-width: 15rem;
@@ -417,7 +433,6 @@ export default {
   border-radius: 0.6rem;
   background: #0E241C;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  transform: translateX(-50%);
   font-size: 0.8rem;
 }
 

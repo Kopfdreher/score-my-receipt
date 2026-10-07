@@ -18,6 +18,13 @@ const OFF_DETAIL_FIELDS = [
 const OFF_MAX_RETRIES = 2
 const OFF_RETRY_DELAY_MS = 3000
 
+class TemporaryError extends Error {
+  constructor(status) {
+    super(`Open Food Facts ${status}`)
+    this.status = status
+  }
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -41,12 +48,18 @@ export default {
     return fetch(url, { method: 'GET' })
       .then((response) => {
         if (response.status === 404) return null
-        // Rate limited or temporary error: wait and try again
-        if ((response.status === 429 || response.status >= 500) && attempt < OFF_MAX_RETRIES) {
-          return wait(OFF_RETRY_DELAY_MS * (attempt + 1)).then(() => this.getProductDetails(code, attempt + 1))
-        }
+        if (response.status === 429 || response.status >= 500) throw new TemporaryError(response.status)
         if (!response.ok) throw new Error(`Open Food Facts ${response.status}`)
         return response.json().then((data) => (data.status === 1 ? data.product : null))
+      })
+      .catch((error) => {
+        // Rate limited, server error, or network error. A 429 from OFF has no CORS header,
+        // so the browser only shows it as a network error (TypeError). Wait and try again.
+        const temporary = error instanceof TemporaryError || error instanceof TypeError
+        if (temporary && attempt < OFF_MAX_RETRIES) {
+          return wait(OFF_RETRY_DELAY_MS * (attempt + 1)).then(() => this.getProductDetails(code, attempt + 1))
+        }
+        throw error
       })
   }
 }
