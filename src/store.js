@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import mockReceipt from './data/mockReceipt'
+import receiptHistoryDb from './services/receiptHistoryDb'
 
 function emptyReceipt() {
   return {
+    historyId: null,
     proofId: null,
-    analysisHistoryId: null,
     analysisSnapshot: null,
     imagePreviewUrl: null,
     locationOsmId: null,
@@ -13,9 +14,21 @@ function emptyReceipt() {
     date: null,
     currency: 'EUR',
     contributePrices: false,
+    sentPriceKeys: [],
     status: 'idle',
     errorMessage: null,
     items: []
+  }
+}
+
+function sameSendField(key, previous, next) {
+  if (key === 'price') return Number(previous) === Number(next)
+  return (previous || null) === (next || null)
+}
+
+function revokePreviewUrl(url) {
+  if (url && typeof url === 'string' && url.startsWith('blob:')) {
+    URL.revokeObjectURL(url)
   }
 }
 
@@ -25,21 +38,17 @@ export const useAppStore = defineStore('app', {
       username: null,
       token: null
     },
-    receipt: emptyReceipt()
+    receipt: emptyReceipt(),
+    historySummaries: []
   }),
   getters: {
     getReceipt: (state) => state.receipt,
-    getItems: (state) => state.receipt.items
+    getItems: (state) => state.receipt.items,
+    getHistorySummaries: (state) => state.historySummaries
   },
   actions: {
     setAnalysisSnapshot(snapshot) {
       this.receipt.analysisSnapshot = snapshot
-    },
-    setAnalysisHistoryId(id) {
-      this.receipt.analysisHistoryId = id
-    },
-    openSavedReceipt(entry) {
-      this.receipt = { ...emptyReceipt(), ...JSON.parse(JSON.stringify(entry.receipt)), status: 'ready', analysisHistoryId: entry.id, analysisSnapshot: { signature: entry.signature, products: entry.products } }
     },
     signIn(data) {
       this.user.username = data['user_id']
@@ -50,17 +59,25 @@ export const useAppStore = defineStore('app', {
       this.user.token = null
     },
     setReceiptFromCapture(payload) {
+      const itemsReplaced = Object.prototype.hasOwnProperty.call(payload, 'items')
+      if (payload.imagePreviewUrl && payload.imagePreviewUrl !== this.receipt.imagePreviewUrl) {
+        revokePreviewUrl(this.receipt.imagePreviewUrl)
+      }
       this.receipt = {
         ...emptyReceipt(),
         ...this.receipt,
         ...payload,
-        analysisHistoryId: null,
         analysisSnapshot: null,
+        historyId: payload.historyId ?? null,
+        sentPriceKeys: itemsReplaced ? [] : (this.receipt.sentPriceKeys || []),
         items: payload.items || this.receipt.items
       }
     },
     updateReceiptMeta(patch) {
       const next = { ...patch }
+      const contextChanged = ['locationOsmId', 'date', 'currency'].some((key) => (
+        Object.prototype.hasOwnProperty.call(patch, key) && patch[key] !== this.receipt[key]
+      ))
       if (Object.prototype.hasOwnProperty.call(patch, 'locationOsmId')) {
         const hasLocation = Boolean(patch.locationOsmId)
         if (!hasLocation) {
@@ -73,11 +90,23 @@ export const useAppStore = defineStore('app', {
       if (!this.receipt.locationOsmId) {
         this.receipt.contributePrices = false
       }
+      if (contextChanged) {
+        this.receipt.items.forEach((item) => {
+          item.priceSent = false
+        })
+      }
     },
     updateItem(id, patch) {
       const item = this.receipt.items.find((entry) => entry.id === id)
-      if (item) {
-        Object.assign(item, patch)
+      if (!item) return
+
+      const sendIdentityChanged = ['price', 'barcode', 'categoryTag'].some((key) => (
+        Object.prototype.hasOwnProperty.call(patch, key)
+        && !sameSendField(key, item[key], patch[key])
+      ))
+      Object.assign(item, patch)
+      if (sendIdentityChanged && patch.priceSent !== true) {
+        item.priceSent = false
       }
     },
     addItem(item) {
@@ -90,6 +119,7 @@ export const useAppStore = defineStore('app', {
         categoryTag: item.categoryTag ?? null,
         off: item.off ?? null,
         verified: item.verified ?? false,
+        priceSent: item.priceSent ?? false,
         userPhotoUrl: item.userPhotoUrl ?? null,
         noBarcodeAvailable: item.noBarcodeAvailable ?? false
       })
@@ -98,19 +128,98 @@ export const useAppStore = defineStore('app', {
       this.receipt.items = this.receipt.items.filter((entry) => entry.id !== id)
     },
     loadMockReceipt() {
+      revokePreviewUrl(this.receipt.imagePreviewUrl)
       this.receipt = {
         ...emptyReceipt(),
         ...mockReceipt,
+        historyId: null,
         items: mockReceipt.items.map((item) => ({
           ...item,
           verified: Boolean(item.verified),
+          priceSent: false,
           userPhotoUrl: item.userPhotoUrl || null,
           noBarcodeAvailable: Boolean(item.noBarcodeAvailable)
         }))
       }
     },
     resetReceipt() {
+      revokePreviewUrl(this.receipt.imagePreviewUrl)
       this.receipt = emptyReceipt()
+    },
+    refreshHistorySummaries() {
+      return receiptHistoryDb.list()
+        .then((rows) => {
+          this.historySummaries = rows
+          return rows
+        })
+        .catch(() => {
+          this.historySummaries = []
+          return []
+        })
+    },
+    saveReceiptToHistory(status, analysisSnapshot = this.receipt.analysisSnapshot) {
+      const existingId = this.receipt.historyId
+      const createdAtPromise = existingId
+        ? receiptHistoryDb.get(existingId).then((row) => row?.createdAt || null)
+        : Promise.resolve(null)
+
+      return createdAtPromise
+        .then((createdAt) => receiptHistoryDb.blobFromUrl(this.receipt.imagePreviewUrl)
+          .then((image) => ({ createdAt, image })))
+        .then(({ createdAt, image }) => {
+          const record = receiptHistoryDb.buildRecord({
+            id: existingId || undefined,
+            status,
+            receipt: this.receipt,
+            items: this.receipt.items,
+            image,
+            createdAt,
+            analysisSnapshot
+          })
+          return receiptHistoryDb.put(record).then(() => record)
+        })
+        .then((record) => {
+          this.receipt.historyId = record.id
+          this.receipt.analysisSnapshot = record.analysisSnapshot
+          return this.refreshHistorySummaries().then(() => record)
+        })
+    },
+    loadReceiptFromHistory(id) {
+      return receiptHistoryDb.get(id)
+        .then((record) => {
+          if (!record) {
+            throw new Error('History entry not found')
+          }
+          revokePreviewUrl(this.receipt.imagePreviewUrl)
+          const imagePreviewUrl = record.image ? URL.createObjectURL(record.image) : null
+          this.receipt = {
+            ...emptyReceipt(),
+            historyId: record.id,
+            analysisSnapshot: record.analysisSnapshot || null,
+            proofId: record.proofId,
+            imagePreviewUrl,
+            locationOsmId: record.locationOsmId,
+            locationOsmType: record.locationOsmType,
+            locationName: record.locationName,
+            date: record.date,
+            currency: record.currency || 'EUR',
+            contributePrices: Boolean(record.contributePrices),
+            sentPriceKeys: Array.isArray(record.sentPriceKeys) ? [...record.sentPriceKeys] : [],
+            status: 'ready',
+            errorMessage: null,
+            items: receiptHistoryDb.cloneItems(record.items)
+          }
+          return record
+        })
+    },
+    deleteReceiptHistory(id) {
+      return receiptHistoryDb.remove(id)
+        .then(() => {
+          if (this.receipt.historyId === id) {
+            this.receipt.historyId = null
+          }
+          return this.refreshHistorySummaries()
+        })
     }
   },
   persist: {

@@ -1,196 +1,258 @@
 <template>
   <main class="review">
     <header class="review__header">
-      <div>
-        <p class="review__brand">
-          {{ $t('app.name') }}
-        </p>
-        <h1 class="review__title">
-          {{ $t('review.title') }}
-        </h1>
-      </div>
-      <UserSessionBar />
+      <h1 class="review__title">
+        {{ $t('review.title') }}
+      </h1>
+      <p class="review__subtitle">
+        {{ $t('review.subtitle') }}
+      </p>
     </header>
 
-    <section class="review__panel review__panel--meta">
-      <div class="review__panel-head">
-        <h2 class="review__panel-title">
-          {{ $t('review.receiptDetailsTitle') }}
-        </h2>
-      </div>
-
-      <div class="review__meta-grid">
-        <v-autocomplete
-          v-model="selectedLocation"
-          v-model:search="locationQuery"
-          :items="locationOptions"
-          item-title="label"
-          item-value="value"
-          return-object
-          clearable
-          hide-no-data
-          :loading="locationSearching"
-          :label="$t('review.location')"
-          :placeholder="$t('review.locationPlaceholder')"
-          prepend-inner-icon="mdi-map-marker-outline"
-          variant="outlined"
-          density="compact"
-          class="review__meta-field"
-          :hint="$t('review.locationHint')"
-          persistent-hint
-          no-filter
-          @update:model-value="onLocationSelected"
-          @update:search="onLocationSearch"
-          @click:clear="clearLocation"
-        />
-
-        <v-text-field
-          :model-value="receiptDate"
-          type="date"
-          :label="$t('review.date')"
-          variant="outlined"
-          density="compact"
-          class="review__meta-field review__meta-field--date"
-          hide-details
-          @update:model-value="onDateChange"
-        />
-
-        <v-select
-          :model-value="currency"
-          :items="currencyOptions"
-          :label="$t('review.currency')"
-          variant="outlined"
-          density="compact"
-          hide-details
-          class="review__meta-field"
-          @update:model-value="onCurrencyChange"
-        />
-      </div>
-
-      <div class="review__contribute">
-        <v-switch
-          :model-value="contributePrices"
-          color="primary"
-          density="compact"
-          hide-details
-          :disabled="!canContribute"
-          :label="$t('review.contributeLabel')"
-          @update:model-value="onContributeChange"
-        />
-        <p class="review__contribute-hint" :class="{ 'review__contribute-hint--ok': canContribute }">
-          {{ canContribute ? $t('review.contributeEnabledHint') : $t('review.contributeDisabledHint') }}
-        </p>
-      </div>
-    </section>
-
-    <section class="review__panel">
-      <div class="review__panel-head">
-        <h2 class="review__panel-title">
-          {{ $t('review.itemsTitle') }}
-        </h2>
-      </div>
-
-      <div v-if="items.length" class="review__table-wrap">
-        <table class="review__table">
-          <thead>
-            <tr>
-              <th scope="col" class="review__th review__th--status">
-                <span class="d-sr-only">{{ $t('review.status') }}</span>
-              </th>
-              <th scope="col" class="review__th review__th--product">
-                {{ $t('review.product') }}
-              </th>
-              <th scope="col" class="review__th">
-                {{ $t('review.text') }}
-              </th>
-              <th scope="col" class="review__th">
-                {{ $t('review.barcode') }}
-              </th>
-              <th scope="col" class="review__th">
-                {{ $t('review.price') }}
-              </th>
-              <th scope="col" class="review__th">
-                {{ $t('review.quantity') }}
-              </th>
-              <th scope="col" class="review__th review__th--actions">
-                <span class="d-sr-only">{{ $t('review.actions') }}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <ReviewItemCard
-              v-for="item in items"
-              :key="item.id"
-              :item="item"
-              :currency="currency"
-              @update="onUpdateItem"
-              @remove="onRemoveItem"
-              @scan="openScanner"
-              @barcode-commit="enrichFromBarcode"
-              @preview="openProductPreview"
-            />
-          </tbody>
-        </table>
-      </div>
-
-      <div v-else class="review__empty">
-        <p>{{ receipt.proofId ? $t('review.emptyCaptured') : $t('review.empty') }}</p>
-        <v-btn
-          v-if="!receipt.proofId"
-          color="primary"
-          variant="tonal"
-          size="small"
-          @click="loadMock"
+    <div class="review__layout" :class="{ 'review__layout--with-receipt': Boolean(receiptImageUrl) }">
+      <aside
+        v-if="receiptImageUrl"
+        class="review__panel review__panel--receipt"
+      >
+        <button
+          type="button"
+          class="review__receipt-toggle"
+          :aria-expanded="receiptOpen"
+          @click="receiptOpen = !receiptOpen"
         >
-          {{ $t('review.loadMock') }}
-        </v-btn>
-      </div>
-
-      <div class="review__panel-foot">
-        <v-chip size="small" variant="tonal" color="primary">
-          {{ $t('review.summary', { count: items.length, total: formattedTotal }) }}
-        </v-chip>
-
-        <div class="review__panel-foot-actions">
-          <v-btn
-            variant="tonal"
-            color="primary"
-            size="small"
-            prepend-icon="mdi-cloud-download-outline"
-            :loading="fetchingProducts"
-            :disabled="!barcodeCount || fetchingProducts"
-            @click="fetchAllProductInfo"
+          <v-icon icon="mdi-receipt-text-outline" size="20" />
+          <span class="review__receipt-toggle-label">
+            {{ receiptOpen ? $t('review.receiptToggleHide') : $t('review.receiptToggleShow') }}
+          </span>
+          <v-icon :icon="receiptOpen ? 'mdi-chevron-up' : 'mdi-chevron-down'" size="22" class="review__receipt-toggle-chevron" />
+        </button>
+        <div v-show="receiptOpen" class="review__receipt-frame">
+          <img
+            :src="receiptImageUrl"
+            :alt="$t('review.receiptImageAlt')"
+            class="review__receipt-image"
           >
-            {{ $t('review.fetchAllProducts') }}
-          </v-btn>
+        </div>
+      </aside>
+
+      <div class="review__main">
+        <section class="review__panel review__panel--meta">
+          <h2 class="review__panel-title review__panel-title--sm">
+            {{ $t('review.receiptDetailsTitle') }}
+          </h2>
+
+          <div class="review__meta-grid">
+            <div class="review__meta-location">
+              <v-autocomplete
+                v-model="selectedLocation"
+                v-model:search="locationQuery"
+                :items="locationOptions"
+                item-title="label"
+                item-value="value"
+                return-object
+                clearable
+                hide-no-data
+                hide-details
+                :loading="locationSearching"
+                :label="$t('review.location')"
+                :placeholder="$t('review.locationPlaceholder')"
+                prepend-inner-icon="mdi-map-marker-outline"
+                variant="outlined"
+                density="comfortable"
+                class="review__meta-field"
+                no-filter
+                @update:model-value="onLocationSelected"
+                @update:search="onLocationSearch"
+                @click:clear="clearLocation"
+              />
+              <p
+                class="review__contribute-hint"
+                :class="{ 'review__contribute-hint--ok': canContribute }"
+              >
+                <v-icon
+                  :icon="canContribute ? 'mdi-check-circle-outline' : 'mdi-information-outline'"
+                  size="15"
+                />
+                <span>{{ canContribute ? $t('review.locationInfoOk') : $t('review.locationInfoNeeded') }}</span>
+              </p>
+            </div>
+
+            <v-text-field
+              :model-value="receiptDate"
+              type="date"
+              :label="$t('review.date')"
+              variant="outlined"
+              density="comfortable"
+              class="review__meta-field review__meta-field--date"
+              hide-details
+              @update:model-value="onDateChange"
+            />
+
+            <v-autocomplete
+              :model-value="currency"
+              :items="currencyOptions"
+              :label="$t('review.currency')"
+              variant="outlined"
+              density="comfortable"
+              hide-details
+              auto-select-first
+              class="review__meta-field"
+              @update:model-value="onCurrencyChange"
+            />
+          </div>
+        </section>
+
+        <section class="review__panel">
+          <div class="review__panel-head review__panel-head--row">
+            <h2 class="review__panel-title">
+              {{ $t('review.itemsTitle') }}
+              <span v-if="items.length" class="review__count">{{ items.length }}</span>
+            </h2>
+            <v-btn
+              color="primary"
+              variant="tonal"
+              size="small"
+              prepend-icon="mdi-cloud-download-outline"
+              :loading="fetchingProducts"
+              :disabled="!barcodeCount || fetchingProducts"
+              @click="fetchAllProductInfo"
+            >
+              {{ $t('review.fetchAllProducts') }}
+            </v-btn>
+          </div>
+          <p v-if="items.length" class="review__items-hint">
+            {{ $t('review.itemsTapHint') }}
+          </p>
+          <v-alert
+            v-if="fetchMessage"
+            class="mb-2"
+            :type="fetchMessageType"
+            variant="tonal"
+            density="compact"
+            :text="fetchMessage"
+          />
+
+          <div v-if="items.length" class="review__table-wrap">
+            <table class="review__table">
+              <thead class="review__thead">
+                <tr>
+                  <th scope="colgroup" class="review__th-row">
+                    <div class="review__th-grid">
+                      <span class="review__th review__th--status">
+                        <span class="d-sr-only">{{ $t('review.status') }}</span>
+                      </span>
+                      <span class="review__th review__th--product">
+                        <span class="d-sr-only">{{ $t('review.product') }}</span>
+                      </span>
+                      <span class="review__th review__th--text">
+                        {{ $t('review.text') }}
+                      </span>
+                      <span class="review__th">
+                        {{ $t('review.barcodeOrCategory') }}
+                      </span>
+                      <span class="review__th">
+                        {{ $t('review.price') }}
+                      </span>
+                      <span class="review__th">
+                        {{ $t('review.quantity') }}
+                      </span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <ReviewItemCard
+                  v-for="item in items"
+                  :key="item.id"
+                  :item="item"
+                  :currency="currency"
+                  :swipe-open="swipeOpenItemId === item.id"
+                  @update="onUpdateItem"
+                  @remove="onRemoveItem"
+                  @scan="openScanner"
+                  @barcode-commit="enrichFromBarcode"
+                  @preview="openProductPreview"
+                  @category-confirm="confirmCategory"
+                  @swipe-open="onItemSwipeOpen"
+                  @swipe-close="onItemSwipeClose"
+                />
+              </tbody>
+            </table>
+          </div>
+
+          <div v-else class="review__empty">
+            <p>{{ receipt.proofId ? $t('review.emptyCaptured') : $t('review.empty') }}</p>
+            <v-btn
+              v-if="!receipt.proofId"
+              color="primary"
+              variant="tonal"
+              size="small"
+              @click="loadMock"
+            >
+              {{ $t('review.loadMock') }}
+            </v-btn>
+          </div>
+
           <v-btn
+            class="review__add-item"
+            variant="outlined"
             color="primary"
-            size="small"
+            block
             prepend-icon="mdi-plus"
             @click="onAddItem"
           >
             {{ $t('review.addItem') }}
           </v-btn>
-        </div>
-      </div>
 
-      <v-alert
-        v-if="fetchMessage"
-        class="mt-3"
-        :type="fetchMessageType"
-        variant="tonal"
-        density="compact"
-        :text="fetchMessage"
-      />
-      <v-alert
-        v-if="locationMessage"
-        class="mt-3"
-        :type="locationMessageType"
-        variant="tonal"
-        density="compact"
-        :text="locationMessage"
-      />
-    </section>
+          <div v-if="items.length" class="review__contribute-send">
+            <div class="review__contribute-send-copy">
+              <p class="review__contribute-send-status">
+                {{ contributeStatus }}
+              </p>
+              <p class="review__contribute-send-hint">
+                {{ $t('review.contributeSendHint') }}
+              </p>
+            </div>
+            <v-btn
+              color="primary"
+              variant="tonal"
+              block
+              prepend-icon="mdi-cloud-upload-outline"
+              :loading="contributing"
+              :disabled="!canSendContribute"
+              @click="sendContributePrices"
+            >
+              {{ $t('review.contributeSend') }}
+            </v-btn>
+          </div>
+
+          <v-alert
+            v-if="locationMessage"
+            class="mt-3"
+            :type="locationMessageType"
+            variant="tonal"
+            density="compact"
+            :text="locationMessage"
+          />
+          <v-alert
+            v-if="contributeMessage"
+            class="mt-3"
+            :type="contributeMessageType"
+            variant="tonal"
+            density="compact"
+            :text="contributeMessage"
+          />
+          <v-alert
+            v-if="draftMessage"
+            class="mt-3"
+            :type="draftMessageType"
+            variant="tonal"
+            density="compact"
+            :text="draftMessage"
+          />
+        </section>
+      </div>
+    </div>
 
     <v-dialog
       v-model="previewOpen"
@@ -294,15 +356,75 @@
             </template>
           </p>
 
-          <div v-if="previewMatchedName && !previewCorrecting" class="review-preview__match">
+          <div class="review-preview__name-edit">
+            <p class="review-preview__match-label">
+              {{ $t('review.receiptName') }}
+            </p>
+            <v-text-field
+              :model-value="previewItem.name"
+              variant="outlined"
+              density="compact"
+              hide-details
+              single-line
+              :placeholder="$t('review.name')"
+              class="review-preview__name-field"
+              @update:model-value="onPreviewNameChange"
+            />
+          </div>
+
+          <div class="review-preview__commerce">
+            <div class="review-preview__commerce-field">
+              <p class="review-preview__match-label">
+                {{ $t('review.price') }}
+              </p>
+              <div class="review-preview__price-row">
+                <v-text-field
+                  :model-value="previewItem.price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  single-line
+                  class="review-preview__price-field"
+                  @update:model-value="onPreviewPriceChange"
+                />
+                <span class="review-preview__currency">{{ currency }}</span>
+              </div>
+            </div>
+            <div class="review-preview__commerce-field">
+              <p class="review-preview__match-label">
+                {{ $t('review.quantity') }}
+              </p>
+              <div class="review-preview__qty-row">
+                <v-text-field
+                  :model-value="previewItem.quantity"
+                  type="number"
+                  :step="previewQuantityStep"
+                  min="0"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  single-line
+                  class="review-preview__qty-field"
+                  :aria-label="$t('review.quantity')"
+                  @update:model-value="onPreviewQuantityChange"
+                />
+                <span class="review-preview__unit">{{ $t(previewQuantityUnitKey) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="previewMatchedName && !previewCorrecting && !isPreviewCategoryItem"
+            class="review-preview__match"
+          >
             <p class="review-preview__match-label">
               {{ $t('review.matchedProduct') }}
             </p>
             <p class="review-preview__match-name">
               {{ previewMatchedName }}
-            </p>
-            <p v-if="previewItem.name" class="review-preview__receipt-name">
-              {{ $t('review.receiptName') }}: {{ previewItem.name }}
             </p>
             <p v-if="previewNameLooksDifferent" class="review-preview__warning">
               {{ $t('review.nameMismatchHint') }}
@@ -396,18 +518,26 @@
             <p class="review-preview__match-label">
               {{ $t('review.useCategory') }}
             </p>
+            <p class="review-preview__hint">
+              {{ $t('review.categoryHint') }}
+            </p>
             <v-autocomplete
+              v-model:search="categorySearch"
               :model-value="previewItem.categoryTag"
-              :items="categoryOptions"
+              :items="filteredCategoryOptions"
               item-title="title"
               item-value="value"
               clearable
+              no-filter
+              auto-select-first
               variant="outlined"
               density="compact"
               hide-details
               :placeholder="$t('review.categoryPlaceholder')"
+              :no-data-text="$t('review.categoryNoMatch')"
               class="review-preview__category-field"
               @update:model-value="onPreviewCategoryChange"
+              @update:search="onCategorySearch"
             />
             <div class="review-preview__actions">
               <v-btn
@@ -421,14 +551,24 @@
               <v-btn
                 size="small"
                 color="primary"
-                :disabled="!previewItem.categoryTag"
+                :loading="categoryImageLoading"
+                :disabled="!previewItem.categoryTag || categoryImageLoading"
                 @click="confirmCategory(previewItem.id)"
               >
                 {{ $t('review.confirmCategory') }}
               </v-btn>
             </div>
-            <p v-if="previewItem.verified && !previewMatchedName" class="review-preview__confirmed">
-              {{ previewItem.categoryTag ? $t('review.productConfirmed') : $t('review.noBarcodeConfirmed') }}
+            <p v-if="categoryImageLoading" class="review-preview__hint">
+              {{ $t('review.categoryImageLoading') }}
+            </p>
+            <p v-if="previewItem.verified && previewItem.categoryTag" class="review-preview__confirmed">
+              {{ $t('review.productConfirmed') }}
+            </p>
+            <p v-else-if="previewItem.noBarcodeAvailable && !previewItem.categoryTag" class="review-preview__hint">
+              {{ $t('review.noBarcodeConfirmed') }}
+            </p>
+            <p v-if="categoryImageMessage" class="review-preview__hint">
+              {{ categoryImageMessage }}
             </p>
           </div>
         </v-card-text>
@@ -440,14 +580,25 @@
       @scanned="onBarcodeScanned"
     />
 
-    <footer class="review__actions">
-      <v-btn variant="text" class="review__back" @click="goBack">
-        {{ $t('review.back') }}
-      </v-btn>
+    <footer class="review__dock">
+      <v-btn
+        icon="mdi-arrow-left"
+        variant="text"
+        class="review__dock-back"
+        :aria-label="$t('review.back')"
+        @click="goBack"
+      />
+      <div class="review__dock-summary">
+        <span class="review__dock-count">{{ $t('review.dockCount', { count: items.length }) }}</span>
+        <span class="review__dock-total">{{ formattedTotal }}</span>
+      </div>
       <v-btn
         color="primary"
+        variant="flat"
+        class="review__dock-cta"
+        append-icon="mdi-arrow-right"
         :disabled="!items.length || contributing"
-        :loading="contributing"
+        :loading="contributing || savingScored"
         @click="goNext"
       >
         {{ $t('review.next') }}
@@ -461,8 +612,9 @@ import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
-import openPricesApi from '@/services/openPricesApi'
+import openFoodFactsCategories from '@/services/openFoodFactsCategories'
 import openStreetMapApi from '@/services/openStreetMapApi'
+import openPricesApi from '@/services/openPricesApi'
 import constants from '@/constants'
 
 const OSM_TYPE_MAP = {
@@ -477,7 +629,6 @@ const OSM_TYPE_MAP = {
 export default {
   name: 'Review',
   components: {
-    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')),
     ReviewItemCard: defineAsyncComponent(() => import('@/components/ReviewItemCard.vue')),
     BarcodeScannerDialog: defineAsyncComponent(() => import('@/components/BarcodeScannerDialog.vue'))
   },
@@ -503,13 +654,44 @@ export default {
       locationMessageType: 'info',
       selectedLocation: null,
       contributing: false,
-      currencyOptions: ['EUR', 'USD', 'GBP']
+      contributeMessage: null,
+      contributeMessageType: 'info',
+      categorySearch: '',
+      categoryImageLoading: false,
+      categoryImageMessage: null,
+      swipeOpenItemId: null,
+      receiptOpen: false,
+      savingDraft: false,
+      savingScored: false,
+      draftMessage: null,
+      draftMessageType: 'info'
     }
   },
   computed: {
     ...mapStores(useAppStore),
     receipt() {
       return this.appStore.getReceipt
+    },
+    receiptImageUrl() {
+      return this.receipt?.imagePreviewUrl || null
+    },
+    currencyOptions() {
+      let codes = []
+      try {
+        if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+          codes = Intl.supportedValuesOf('currency')
+        }
+      } catch {
+        codes = []
+      }
+      if (!codes.length) {
+        codes = [...constants.CURRENCY_OPTIONS]
+      }
+      const current = this.currency
+      if (current && !codes.includes(current)) {
+        return [current, ...codes]
+      }
+      return codes
     },
     items() {
       return this.appStore.getItems
@@ -538,22 +720,36 @@ export default {
       if (!receipt || !matched) return false
       return receipt !== matched && !receipt.includes(matched) && !matched.includes(receipt)
     },
-    categoryOptions() {
-      return constants.PRODUCT_CATEGORY_OPTIONS
+    filteredCategoryOptions() {
+      // Keep the full OFF list outside Vue reactive state; only expose the filtered slice.
+      return openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
+    },
+    isPreviewCategoryItem() {
+      if (!this.previewItem) return false
+      if (this.previewItem.barcode && !this.previewItem.noBarcodeAvailable) return false
+      return Boolean(
+        this.previewNoBarcodeMode
+        || this.previewItem.noBarcodeAvailable
+        || this.previewItem.categoryTag
+        || !this.previewItem.barcode
+      )
+    },
+    previewQuantityUnitKey() {
+      return this.isCategoryPriced(this.previewItem) ? 'review.unitKg' : 'review.unitPackage'
+    },
+    previewQuantityStep() {
+      return this.isCategoryPriced(this.previewItem) ? '0.001' : '1'
     },
     showPreviewBarcodeEdit() {
       if (!this.previewItem) return false
       if (this.previewCorrecting) return true
+      if (this.isPreviewCategoryItem) return false
       if (this.previewMatchedName) return false
-      if (this.previewNoBarcodeMode || this.previewItem.noBarcodeAvailable) return false
       return Boolean(this.previewItem.barcode)
     },
     showPreviewNoBarcode() {
-      if (!this.previewItem || this.previewMatchedName) return false
-      if (this.previewCorrecting) return false
-      return this.previewNoBarcodeMode
-        || this.previewItem.noBarcodeAvailable
-        || !this.previewItem.barcode
+      if (!this.previewItem || this.previewCorrecting) return false
+      return this.isPreviewCategoryItem
     },
     previewBarcodePlaceholder() {
       if (this.previewItem?.noBarcodeAvailable) {
@@ -570,8 +766,35 @@ export default {
     canContribute() {
       return Boolean(this.receipt?.locationOsmId && this.receipt?.locationOsmType)
     },
-    contributePrices() {
-      return Boolean(this.receipt?.contributePrices && this.canContribute)
+    pendingVerificationCount() {
+      return this.items.filter((item) => !item.verified).length
+    },
+    sentPriceCount() {
+      return this.items.filter((item) => this.itemPriceAlreadySent(item)).length
+    },
+    contributableItems() {
+      return this.items.filter((item) => this.itemCanContribute(item) && !this.itemPriceAlreadySent(item))
+    },
+    contributeStatus() {
+      if (!this.contributableItems.length && this.sentPriceCount) {
+        return this.$t('review.contributeAlreadySent', { count: this.sentPriceCount })
+      }
+      if (this.pendingVerificationCount) {
+        return this.$t('review.contributePending', {
+          count: this.contributableItems.length,
+          pending: this.pendingVerificationCount
+        })
+      }
+      return this.$t('review.contributeReady', { count: this.contributableItems.length })
+    },
+    canSendContribute() {
+      return Boolean(
+        this.appStore.user?.token
+        && this.canContribute
+        && this.receiptDate
+        && this.contributableItems.length
+        && !this.contributing
+      )
     },
     total() {
       return this.items.reduce((sum, item) => {
@@ -593,6 +816,8 @@ export default {
     }
   },
   mounted() {
+    this.receiptOpen = typeof window !== 'undefined'
+      && window.matchMedia('(min-width: 960px)').matches
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
     if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
@@ -610,6 +835,8 @@ export default {
         this.syncSelectedLocationFromStore()
         return
       }
+      // Keep a restored History entry even when it has no Open Prices proofId.
+      if (this.appStore.getReceipt.historyId) return
       if (!this.appStore.getReceipt.proofId && this.appStore.getItems.length === 0) {
         this.appStore.loadMockReceipt()
         this.syncSelectedLocationFromStore()
@@ -638,13 +865,6 @@ export default {
     },
     onCurrencyChange(value) {
       this.appStore.updateReceiptMeta({ currency: value || 'EUR' })
-    },
-    onContributeChange(value) {
-      if (!this.canContribute) {
-        this.appStore.updateReceiptMeta({ contributePrices: false })
-        return
-      }
-      this.appStore.updateReceiptMeta({ contributePrices: Boolean(value) })
     },
     clearLocation() {
       this.selectedLocation = null
@@ -765,8 +985,14 @@ export default {
 
       if (Object.prototype.hasOwnProperty.call(patch, 'noBarcodeAvailable') && patch.noBarcodeAvailable) {
         nextPatch.barcode = null
-        nextPatch.off = null
-        nextPatch.verified = true
+        // Only clear OFF / verification when the caller did not set them explicitly
+        // (e.g. category confirm may send noBarcodeAvailable with a fresh off payload).
+        if (!Object.prototype.hasOwnProperty.call(patch, 'off')) {
+          nextPatch.off = null
+        }
+        if (!Object.prototype.hasOwnProperty.call(patch, 'verified')) {
+          nextPatch.verified = false
+        }
       }
 
       this.appStore.updateItem(id, nextPatch)
@@ -776,7 +1002,18 @@ export default {
         this.scanningItemId = null
         this.scannerOpen = false
       }
+      if (this.swipeOpenItemId === id) {
+        this.swipeOpenItemId = null
+      }
       this.appStore.removeItem(id)
+    },
+    onItemSwipeOpen(id) {
+      this.swipeOpenItemId = id
+    },
+    onItemSwipeClose(id) {
+      if (this.swipeOpenItemId === id) {
+        this.swipeOpenItemId = null
+      }
     },
     onAddItem() {
       this.appStore.addItem({
@@ -927,15 +1164,80 @@ export default {
     },
     confirmCategory(itemId) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
-      if (!item?.categoryTag) return
+      if (!item?.categoryTag || this.categoryImageLoading) return
+
+      this.categoryImageLoading = true
+      this.categoryImageMessage = null
+
       this.appStore.updateItem(itemId, {
         verified: true,
         barcode: null,
-        off: null,
-        noBarcodeAvailable: false
+        noBarcodeAvailable: true,
+        off: {
+          nutriscore_grade: null,
+          nova_group: null,
+          ecoscore_grade: null,
+          image_front_small_url: null,
+          image_front_url: null,
+          brands: null,
+          quantity: null
+        }
       })
       this.previewCorrecting = false
       this.previewNoBarcodeMode = true
+
+      openFoodFactsApi.openfoodfactsCategoryImageSearch(item.categoryTag)
+        .then((imageData) => {
+          const current = this.appStore.getItems.find((entry) => entry.id === itemId)
+          if (!current || current.categoryTag !== item.categoryTag) return
+
+          if (!imageData || !(imageData.image_front_small_url || imageData.image_front_url)) {
+            this.categoryImageMessage = this.$t('review.categoryImageError')
+            return
+          }
+
+          this.appStore.updateItem(itemId, {
+            off: {
+              ...(current.off || {}),
+              image_front_small_url: imageData.image_front_small_url || null,
+              image_front_url: imageData.image_front_url || imageData.image_front_small_url || null
+            }
+          })
+          this.categoryImageMessage = null
+        })
+        .catch(() => {
+          this.categoryImageMessage = this.$t('review.categoryImageError')
+        })
+        .finally(() => {
+          this.categoryImageLoading = false
+        })
+    },
+    onCategorySearch(query) {
+      this.categorySearch = query || ''
+    },
+    onPreviewNameChange(value) {
+      if (!this.previewItemId) return
+      this.appStore.updateItem(this.previewItemId, { name: value || '' })
+    },
+    onPreviewPriceChange(value) {
+      if (!this.previewItemId) return
+      this.onUpdateItem(this.previewItemId, { price: this.parsePreviewNumber(value) })
+    },
+    onPreviewQuantityChange(value) {
+      if (!this.previewItemId) return
+      const parsed = this.parsePreviewNumber(value)
+      this.onUpdateItem(this.previewItemId, {
+        quantity: parsed === null || parsed <= 0 ? 1 : parsed
+      })
+    },
+    // Category prices are per kg; barcode (product) prices are per package.
+    isCategoryPriced(item) {
+      return Boolean(item && !item.barcode && item.categoryTag)
+    },
+    parsePreviewNumber(value) {
+      if (value === '' || value === null || value === undefined) return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : null
     },
     onPreviewCategoryChange(categoryTag) {
       if (!this.previewItemId) return
@@ -943,11 +1245,15 @@ export default {
         categoryTag: categoryTag || null,
         barcode: null,
         verified: false,
-        off: null
+        off: null,
+        noBarcodeAvailable: true
       })
       this.previewNoBarcodeMode = true
       this.previewCorrecting = false
       this.previewBarcodeDraft = ''
+      if (categoryTag) {
+        this.categorySearch = openFoodFactsCategories.getCategoryName(categoryTag) || ''
+      }
     },
     markNoBarcodeAvailable(itemId) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
@@ -955,7 +1261,7 @@ export default {
       this.appStore.updateItem(itemId, {
         barcode: null,
         off: null,
-        verified: Boolean(item.categoryTag),
+        verified: false,
         noBarcodeAvailable: true,
         categoryTag: item.categoryTag || null
       })
@@ -1002,6 +1308,9 @@ export default {
         this.previewLookingUp = false
         this.previewPhotoMessage = null
         this.previewItemId = null
+        this.categorySearch = ''
+        this.categoryImageLoading = false
+        this.categoryImageMessage = null
       }
     },
     openProductPreview(itemId) {
@@ -1011,10 +1320,19 @@ export default {
       this.previewBarcodeDraft = item?.barcode || ''
       this.previewCorrecting = false
       this.previewNoBarcodeMode = Boolean(
-        item && (item.noBarcodeAvailable || (!item.barcode && !item.off))
+        item && (
+          item.noBarcodeAvailable
+          || item.categoryTag
+          || !item.barcode
+        )
       )
       this.previewLookingUp = false
       this.previewPhotoMessage = null
+      this.categoryImageLoading = false
+      this.categoryImageMessage = null
+      this.categorySearch = item?.categoryTag
+        ? (openFoodFactsCategories.getCategoryName(item.categoryTag) || '')
+        : ''
     },
     openGalleryPhotoPicker() {
       this.previewPhotoMessage = null
@@ -1063,153 +1381,392 @@ export default {
     goBack() {
       this.$router.push({ name: 'upload' })
     },
-    goNext() {
-      if (!this.contributePrices) {
-        this.$router.push({ name: 'score' })
-        return
-      }
-      this.contributeThenContinue()
-    },
-    contributeThenContinue() {
-      const proofId = Number(this.receipt.proofId)
-      if (!Number.isInteger(proofId)) {
-        this.locationMessageType = 'warning'
-        this.locationMessage = this.$t('review.contributeNeedsProof')
-        return
-      }
-      if (!this.receipt.date) {
-        this.locationMessageType = 'warning'
-        this.locationMessage = this.$t('review.contributeNeedsDate')
-        return
-      }
-
-      const lines = this.items.filter((item) => this.canPublishPrice(item))
-      if (!lines.length) {
-        this.locationMessageType = 'warning'
-        this.locationMessage = this.$t('review.contributeNoLines')
-        return
-      }
-
-      this.contributing = true
-      this.locationMessage = null
-      Promise.all(lines.map((item) => openPricesApi.createPrice(this.pricePayload(item, proofId))))
-        .then(() => this.$router.push({ name: 'score' }))
+    saveDraft() {
+      if (!this.items.length || this.savingDraft) return
+      this.savingDraft = true
+      this.draftMessage = null
+      this.appStore.saveReceiptToHistory('draft')
+        .then(() => {
+          this.draftMessageType = 'success'
+          this.draftMessage = this.$t('review.saveDraftSuccess')
+        })
         .catch(() => {
-          this.locationMessageType = 'error'
-          this.locationMessage = this.$t('review.contributeError')
+          this.draftMessageType = 'error'
+          this.draftMessage = this.$t('review.saveDraftError')
+        })
+        .finally(() => {
+          this.savingDraft = false
+        })
+    },
+    persistScoredThenGo() {
+      this.savingScored = true
+      this.draftMessage = null
+      return this.appStore.saveReceiptToHistory('scored')
+        .then(() => {
+          this.$router.push({ name: 'score' })
+        })
+        .catch(() => {
+          this.draftMessageType = 'error'
+          this.draftMessage = this.$t('review.saveScoredError')
+        })
+        .finally(() => {
+          this.savingScored = false
+        })
+    },
+    goNext() {
+      this.persistScoredThenGo()
+    },
+    buildPricePayload(item) {
+      const price = Number(item.price)
+      const quantity = Number(item.quantity)
+      const payload = {
+        price,
+        currency: this.currency,
+        date: this.receiptDate,
+        location_osm_id: this.receipt.locationOsmId,
+        location_osm_type: this.receipt.locationOsmType,
+        receipt_quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+      }
+
+      if (this.receipt.proofId) {
+        payload.proof_id = this.receipt.proofId
+      }
+
+      if (item.barcode) {
+        payload.type = constants.PRICE_TYPE_PRODUCT
+        payload.product_code = String(item.barcode)
+      } else if (item.categoryTag) {
+        payload.type = constants.PRICE_TYPE_CATEGORY
+        payload.category_tag = item.categoryTag
+        payload.price_per = 'KILOGRAM'
+      }
+
+      return payload
+    },
+    itemCanContribute(item) {
+      if (!item?.verified) return false
+      if (!Number.isFinite(Number(item.price))) return false
+      return Boolean(item.barcode || item.categoryTag)
+    },
+    pricePayloadKey(payload) {
+      const identity = payload.product_code || payload.category_tag || ''
+      return [
+        payload.type,
+        identity,
+        Number(payload.price),
+        payload.currency,
+        payload.date,
+        payload.location_osm_id,
+        payload.location_osm_type,
+        payload.price_per || ''
+      ].join('|')
+    },
+    itemPriceAlreadySent(item) {
+      if (!item || !this.itemCanContribute(item)) return Boolean(item?.priceSent)
+      if (item.priceSent) return true
+      const keys = this.receipt?.sentPriceKeys || []
+      if (!keys.length) return false
+      return keys.includes(this.pricePayloadKey(this.buildPricePayload(item)))
+    },
+    sendContributePrices() {
+      this.contributeMessage = null
+
+      if (!this.appStore.user?.token) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedSignIn')
+        return
+      }
+      if (!this.canContribute) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedLocation')
+        return
+      }
+      if (!this.receiptDate) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedDate')
+        return
+      }
+
+      const seen = new Set(this.receipt.sentPriceKeys || [])
+      const queued = []
+      this.contributableItems.forEach((item) => {
+        const payload = this.buildPricePayload(item)
+        const key = this.pricePayloadKey(payload)
+        if (seen.has(key)) return
+        seen.add(key)
+        queued.push({ item, payload, key })
+      })
+
+      if (!queued.length) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNothingToSend')
+        return
+      }
+
+      // Button click is the contribute action — keep the toggle in sync.
+      this.appStore.updateReceiptMeta({ contributePrices: true })
+      this.contributing = true
+
+      Promise.allSettled(
+        queued.map((entry) => openPricesApi.createPrice(entry.payload, 'review'))
+      )
+        .then((results) => {
+          const succeededKeys = new Set()
+          results.forEach((result, index) => {
+            if (result.status !== 'fulfilled') return
+            succeededKeys.add(queued[index].key)
+            this.appStore.updateItem(queued[index].item.id, { priceSent: true })
+          })
+
+          if (succeededKeys.size) {
+            const nextKeys = new Set([...(this.receipt.sentPriceKeys || []), ...succeededKeys])
+            this.appStore.updateReceiptMeta({ sentPriceKeys: [...nextKeys] })
+            this.items.forEach((item) => {
+              if (item.priceSent || !this.itemCanContribute(item)) return
+              const key = this.pricePayloadKey(this.buildPricePayload(item))
+              if (succeededKeys.has(key)) {
+                this.appStore.updateItem(item.id, { priceSent: true })
+              }
+            })
+          }
+
+          const sent = succeededKeys.size
+          const failed = results.length - sent
+          if (!failed) {
+            this.contributeMessageType = 'success'
+            this.contributeMessage = this.$t('review.contributeSuccess', {
+              sent,
+              total: results.length
+            })
+            return
+          }
+          this.contributeMessageType = sent ? 'warning' : 'error'
+          this.contributeMessage = this.$t('review.contributePartial', {
+            sent,
+            total: results.length,
+            failed
+          })
+        })
+        .catch(() => {
+          this.contributeMessageType = 'error'
+          this.contributeMessage = this.$t('review.contributeError')
         })
         .finally(() => {
           this.contributing = false
         })
-    },
-    canPublishPrice(item) {
-      const price = Number(item.price)
-      if (!Number.isFinite(price)) return false
-      return Boolean(item.barcode || item.categoryTag)
-    },
-    pricePayload(item, proofId) {
-      const payload = {
-        price: Number(item.price),
-        currency: this.currency,
-        date: this.receipt.date,
-        receipt_quantity: Number(item.quantity) || 1,
-        location_osm_id: this.receipt.locationOsmId,
-        location_osm_type: this.receipt.locationOsmType,
-        proof_id: proofId,
-        product_name: item.name || null
-      }
-      if (item.barcode) {
-        payload.type = 'PRODUCT'
-        payload.product_code = String(item.barcode)
-      } else {
-        payload.type = 'CATEGORY'
-        payload.category_tag = item.categoryTag
-      }
-      return payload
     }
   }
 }
+
 </script>
 
 <style scoped>
 .review {
   min-height: 100dvh;
-  padding: 1.25rem;
-  padding-bottom: 5rem;
+  padding: 0.9rem 0.8rem 0;
   color: var(--smr-cream, #F7FBF4);
   background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+  overflow-x: clip;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .review__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.review__brand {
-  margin: 0 0 0.2rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: 1rem;
-  font-weight: 700;
+  margin-bottom: 0.85rem;
+  width: 100%;
 }
 
 .review__title {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 600;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.review__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: rgba(232, 242, 230, 0.72);
+}
+
+.review__layout {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+  max-width: 56rem;
+  align-items: start;
+}
+
+.review__layout--with-receipt {
+  max-width: 74rem;
+}
+
+.review__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
 }
 
 .review__panel {
-  width: min(56rem, 100%);
-  padding: 0.85rem 0.85rem 0.75rem;
-  border-radius: 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.85rem 0.8rem;
+  border-radius: 1rem;
   background: #F7FBF4;
   color: #0E241C;
-  box-shadow: 0 14px 30px rgba(6, 18, 13, 0.22);
+  box-shadow: 0 10px 26px rgba(6, 18, 13, 0.22);
+  box-sizing: border-box;
 }
 
-.review__panel--meta {
-  margin-bottom: 0.85rem;
+.review__panel--receipt {
+  min-width: 0;
+  order: -1;
+  padding: 0.35rem;
+}
+
+.review__receipt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.55rem 0.55rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: #0E241C;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review__receipt-toggle:focus-visible {
+  outline: 2px solid #1F6B4A;
+  outline-offset: 1px;
+}
+
+.review__receipt-toggle-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.review__receipt-toggle-chevron {
+  color: rgba(14, 36, 28, 0.5);
+}
+
+.review__receipt-frame {
+  overflow: auto;
+  max-height: min(48dvh, 24rem);
+  margin: 0.2rem 0.2rem 0.2rem;
+  padding: 0.35rem;
+  border-radius: 0.7rem;
+  background:
+    linear-gradient(#F7FBF4, #F7FBF4) padding-box,
+    linear-gradient(160deg, rgba(31, 107, 74, 0.55), rgba(14, 36, 28, 0.35)) border-box;
+  border: 3px solid transparent;
+  box-shadow:
+    inset 0 0 0 1px rgba(14, 36, 28, 0.08),
+    0 0 0 1px rgba(14, 36, 28, 0.12);
+  -webkit-overflow-scrolling: touch;
+}
+
+.review__receipt-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(14, 36, 28, 0.14);
+  background: #fff;
 }
 
 .review__panel-head {
-  margin-bottom: 0.35rem;
-  padding: 0 0.25rem;
+  margin-bottom: 0.2rem;
+}
+
+.review__panel-head--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .review__panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.review__panel-title--sm {
+  margin-bottom: 0.7rem;
+  font-size: 1rem;
+}
+
+.review__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: rgba(31, 107, 74, 0.14);
+  color: #1F6B4A;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.review__items-hint {
+  margin: 0.15rem 0 0.7rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: rgba(14, 36, 28, 0.55);
 }
 
 .review__meta-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(10rem, 12rem) minmax(7rem, 8.5rem);
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.7rem;
   align-items: start;
 }
 
-.review__meta-field :deep(.v-field) {
-  border-radius: 0.55rem;
-  background: #fff;
+.review__meta-location {
+  grid-column: 1 / -1;
+  min-width: 0;
 }
 
-.review__contribute {
-  margin-top: 0.85rem;
-  padding: 0.65rem 0.75rem;
+.review__meta-field :deep(.v-field) {
   border-radius: 0.65rem;
-  background: rgba(14, 36, 28, 0.04);
+  background: #fff;
+  font-size: 0.92rem;
+}
+
+.review__meta-field--date :deep(input) {
+  text-align: left;
+  min-width: 0;
 }
 
 .review__contribute-hint {
-  margin: 0.15rem 0 0;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  font-size: 0.76rem;
   line-height: 1.35;
-  color: rgba(14, 36, 28, 0.62);
+  color: #8A5A00;
+}
+
+.review__contribute-hint .v-icon {
+  margin-top: 0.1rem;
+  flex-shrink: 0;
 }
 
 .review__contribute-hint--ok {
@@ -1217,15 +1774,37 @@ export default {
 }
 
 .review__table-wrap {
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .review__table {
+  display: block;
   width: 100%;
   border-collapse: collapse;
 }
 
+.review__table tbody {
+  display: block;
+  width: 100%;
+}
+
+.review__thead {
+  display: none;
+}
+
+.review__th-row {
+  padding: 0;
+  border-bottom: 1px solid rgba(14, 36, 28, 0.1);
+}
+
+.review__th-grid {
+  display: grid;
+  grid-template-columns: 2.25rem 3.25rem minmax(8rem, 1fr) minmax(13rem, 15rem) 8.5rem 10.5rem;
+  min-width: 50rem;
+}
+
 .review__th {
+  display: block;
   padding: 0.4rem 0.5rem;
   text-align: left;
   font-size: 0.72rem;
@@ -1233,33 +1812,65 @@ export default {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(14, 36, 28, 0.5);
-  border-bottom: 1px solid rgba(14, 36, 28, 0.1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.review__th--status,
-.review__th--product,
-.review__th--actions {
-  width: 1%;
+.review__th--product {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
-.review__panel-foot {
+.review__add-item {
+  margin-top: 0.7rem;
+  border-style: dashed;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.review__contribute-send {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-  padding-top: 0.65rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+  padding: 0.8rem;
+  border-radius: 0.8rem;
+  background: rgba(31, 107, 74, 0.08);
+  border: 1px solid rgba(31, 107, 74, 0.18);
 }
 
-.review__panel-foot-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.review__contribute-send-copy {
+  min-width: 0;
+}
+
+.review__contribute-send-status {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0E241C;
+}
+
+.review__contribute-send-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: rgba(14, 36, 28, 0.62);
+}
+
+.review__contribute-send .v-btn {
+  width: 100%;
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
 }
 
 .review__empty {
   padding: 1.25rem 0.5rem;
+  text-align: center;
 }
 
 .review__empty p {
@@ -1267,14 +1878,148 @@ export default {
   color: rgba(14, 36, 28, 0.7);
 }
 
-.review__actions {
+/* Sticky bottom action bar */
+.review__dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: min(56rem, 100%);
-  margin-top: 1rem;
+  gap: 0.6rem;
+  margin: auto -0.8rem 0;
+  padding: 0.65rem 0.8rem;
+  background: rgba(14, 36, 28, 0.92);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(232, 242, 230, 0.14);
+  box-sizing: border-box;
+}
+
+.review__dock-back {
+  flex-shrink: 0;
+  color: var(--smr-mist, #E8F2E6) !important;
+}
+
+.review__dock-summary {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.review__dock-count {
+  font-size: 0.72rem;
+  color: rgba(232, 242, 230, 0.7);
+}
+
+.review__dock-total {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #F7FBF4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review__dock-cta {
+  flex-shrink: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+
+@media (min-width: 600px) {
+  .review {
+    padding: 1.1rem 1rem 0;
+  }
+
+  .review__dock {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .review__title {
+    font-size: 1.6rem;
+  }
+
+  .review__meta-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 11rem) minmax(7rem, 8.5rem);
+  }
+
+  .review__meta-location {
+    grid-column: auto;
+  }
+
+  .review__contribute-send {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .review__contribute-send .v-btn {
+    width: auto;
+  }
+
+  .review__add-item {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
+@media (min-width: 960px) {
+  .review {
+    padding: 1.25rem 1.25rem 0;
+  }
+
+  .review__dock {
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .review__layout--with-receipt {
+    grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+  }
+
+  .review__panel--receipt {
+    order: 0;
+    position: sticky;
+    top: 4.5rem;
+  }
+
+  .review__receipt-toggle {
+    display: none;
+  }
+
+  .review__receipt-frame {
+    display: block !important;
+    max-height: min(70dvh, 40rem);
+  }
+
+  .review__table {
+    display: table;
+  }
+
+  .review__table tbody {
+    display: table-row-group;
+  }
+
+  .review__thead {
+    display: table-header-group;
+  }
+
+  .review__items-hint {
+    display: none;
+  }
+
+  .review__table-wrap {
+    overflow-x: auto;
+  }
 }
 
 .review__back {
@@ -1312,8 +2057,10 @@ export default {
   flex: 1;
   min-height: 0;
   padding: 0.35rem 0.85rem 0.85rem !important;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   text-align: center;
+  -webkit-overflow-scrolling: touch;
 }
 
 .review-preview__image {
@@ -1419,6 +2166,78 @@ export default {
   color: #1F6B4A;
 }
 
+.review-preview__hint {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: rgba(14, 36, 28, 0.6);
+}
+
+.review-preview__name-edit {
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(14, 36, 28, 0.1);
+  text-align: left;
+}
+
+.review-preview__name-field {
+  margin-top: 0.3rem;
+}
+
+.review-preview__name-field :deep(.v-field) {
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.review-preview__commerce {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(14, 36, 28, 0.1);
+  text-align: left;
+}
+
+.review-preview__commerce-field {
+  min-width: 0;
+}
+
+.review-preview__price-row,
+.review-preview__qty-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+
+.review-preview__price-field,
+.review-preview__qty-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-preview__unit {
+  flex-shrink: 0;
+  min-width: 2.6rem;
+  color: rgba(14, 36, 28, 0.65);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.review-preview__currency {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(14, 36, 28, 0.55);
+}
+
+.review-preview__price-field :deep(.v-field),
+.review-preview__qty-field :deep(.v-field) {
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
 .review-preview__edit,
 .review-preview__category {
   margin-top: 0.55rem;
@@ -1453,11 +2272,5 @@ export default {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.45rem;
-}
-
-@media (max-width: 700px) {
-  .review__meta-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

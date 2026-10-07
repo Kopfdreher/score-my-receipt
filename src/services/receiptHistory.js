@@ -1,27 +1,8 @@
-const KEY = 'score-my-receipt:receipts:v1'
-
+// Only receipt fields that affect the analysis invalidate a saved snapshot.
 export function receiptSignature(receipt) {
-  return JSON.stringify({ items: receipt.items, date: receipt.date, currency: receipt.currency })
-}
-
-export function readReceipts() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || '[]')
-    return Array.isArray(saved) ? saved.filter(entry => entry.id && entry.receipt && Array.isArray(entry.products)) : []
-  } catch { return [] }
-}
-
-export function saveReceipt(receipt, products, id) {
-  // Photos are not needed to reopen an analysis and can exceed browser storage limits.
-  const metadata = { ...receipt }
-  delete metadata.analysisSnapshot
-  delete metadata.imagePreviewUrl
-  const copy = { ...metadata, imagePreviewUrl: null, items: receipt.items.map(item => ({ ...item, userPhotoUrl: null })) }
-  const entry = { id, savedAt: new Date().toISOString(), receipt: copy, products, signature: receiptSignature(copy) }
-  localStorage.setItem(KEY, JSON.stringify([entry, ...readReceipts().filter(saved => saved.id !== id)]))
-  return entry
-}
-
-export function deleteReceipt(id) {
-  localStorage.setItem(KEY, JSON.stringify(readReceipts().filter(entry => entry.id !== id)))
+  return JSON.stringify({
+    items: receipt.items.map(item => ({ id: item.id, name: item.name || '', price: item.price ?? null, quantity: item.quantity ?? 1, barcode: item.barcode ?? null, categoryTag: item.categoryTag ?? null, weight: item.weight ?? null, weightUnit: item.weightUnit ?? null, off: item.off ?? null })),
+    date: receipt.date,
+    currency: receipt.currency
+  })
 }

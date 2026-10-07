@@ -152,11 +152,12 @@ of safety; gluten-free labels are not presented as verified certifications.
 ### Saved analyses
 
 Opening an analysis automatically saves its corrected receipt and analysis snapshot
-in this browser's local storage. The **Saved receipts** button shows the receipt
+in this browser's IndexedDB history. The **Saved receipts** button shows the receipt
 date, distinct product count and known amount spent, with Open and Delete actions.
 Reopening a snapshot does not fetch updated OFF data. Editing a product opens that
 product in Review; returning to Score recalculates and replaces the saved version.
-Photos are omitted from saved history to keep browser storage small. History is
-local to this browser and is removed when its site data is cleared.
+Receipt photos and drafts use the same history. A receipt becomes scored once its
+analysis snapshot is saved. History is local to this browser and is removed when
+its site data is cleared. Earlier localStorage test receipts are not imported.
 
 Run history checks with `node scripts/test-receipt-history.mjs`.

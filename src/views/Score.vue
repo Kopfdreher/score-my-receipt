@@ -4,7 +4,6 @@
       <p class="score__brand">
         {{ $t('app.name') }}
       </p>
-      <UserSessionBar />
     </header>
     <div class="score__content">
       <div class="score__heading">
@@ -15,7 +14,7 @@
           <h1>{{ $t('score.ui.title') }}</h1>
         </div>
         <div class="score__heading-tools">
-          <v-btn variant="outlined" @click="historyOpen = true">
+          <v-btn variant="outlined" :to="{ name: 'history' }">
             {{ $t('score.ui.history.title') }}
           </v-btn>
           <InfoTip :title="$t('score.ui.title')" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
@@ -24,29 +23,6 @@
       <v-alert v-if="storageError" type="warning" variant="tonal">
         {{ $t('score.ui.history.error') }}
       </v-alert>
-      <v-dialog v-model="historyOpen" max-width="600">
-        <v-card :title="$t('score.ui.history.title')">
-          <v-card-text>
-            <p v-if="!savedReceipts.length">
-              {{ $t('score.ui.history.empty') }}
-            </p>
-            <div v-for="entry in savedReceipts" :key="entry.id" class="score__history-row">
-              <div>{{ entry.receipt.date || $t('score.ui.history.unknownDate') }}<br>{{ $t('score.ui.productsCount', entry.products.length) }} · {{ savedTotal(entry) }}</div>
-              <v-btn variant="text" @click="openSaved(entry)">
-                {{ $t('score.ui.history.open') }}
-              </v-btn>
-              <v-btn variant="text" @click="removeSaved(entry.id)">
-                {{ $t('score.ui.history.delete') }}
-              </v-btn>
-            </div>
-          </v-card-text>
-          <v-card-actions>
-            <v-btn @click="historyOpen = false">
-              {{ $t('score.ui.history.close') }}
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
       <v-alert v-if="isMock" class="score__alert" type="info" variant="tonal" density="compact">
         {{ $t('score.mockBanner') }}
       </v-alert>
@@ -294,12 +270,11 @@
 </template>
 
 <script>
-import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
-import { readReceipts, saveReceipt, deleteReceipt, receiptSignature } from '@/services/receiptHistory'
+import { receiptSignature } from '@/services/receiptHistory'
 import ADDITIVES from '@/utils/additives.json'
 import CategoryChart from '@/components/CategoryChart.vue'
 import InfoTip from '@/components/InfoTip.vue'
@@ -334,12 +309,12 @@ function preferences() {
 }
 export default {
   name: 'Score',
-  components: { UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')), CategoryChart, InfoTip, AnalysisProductList },
+  components: { CategoryChart, InfoTip, AnalysisProductList },
   data() {
     const prefs = preferences()
     return {
       fetched: {}, detailsStatus: 'idle', requestId: 0,
-      historyOpen: false, savedReceipts: readReceipts(), storageError: false, initializing: true,
+      storageError: false, initializing: true,
       selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
       productSort: prefs.sort, sortReverse: prefs.reverse, sortOptions: SORT_OPTIONS,
       allergenKeys: ALLERGENS, referenceSources: REFERENCE_SOURCES,
@@ -403,35 +378,10 @@ export default {
     },
     saveAnalysis() {
       if (!this.items.length || this.snapshotMatches) return
-      try {
-        const id = this.receipt.analysisHistoryId || crypto.randomUUID()
-        const products = JSON.parse(JSON.stringify(this.products))
-        saveReceipt(this.receipt, products, id)
-        this.appStore.setAnalysisHistoryId(id)
-        this.appStore.setAnalysisSnapshot({ signature: receiptSignature(this.receipt), products })
-        this.savedReceipts = readReceipts()
-        this.storageError = false
-      } catch { this.storageError = true }
-    },
-    openSaved(entry) {
-      this.requestId += 1
-      this.fetched = {}
-      this.appStore.openSavedReceipt(entry)
-      this.historyOpen = false
-      if (this.$route.query.mock) this.$router.replace({ name: 'score' })
-      this.loadDetails()
-    },
-    removeSaved(id) {
-      try {
-        deleteReceipt(id)
-        this.savedReceipts = readReceipts()
-        if (this.receipt.analysisHistoryId === id) this.appStore.setAnalysisHistoryId(null)
-        this.storageError = false
-      } catch { this.storageError = true }
-    },
-    savedTotal(entry) {
-      const known = entry.products.filter(product => product.lineTotal !== null)
-      return known.length ? new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: entry.receipt.currency || 'EUR' }).format(known.reduce((sum, product) => sum + product.lineTotal, 0)) : this.$t('score.noData')
+      const snapshot = { signature: receiptSignature(this.receipt), products: JSON.parse(JSON.stringify(this.products)), savedAt: new Date().toISOString() }
+      this.appStore.saveReceiptToHistory('scored', snapshot)
+        .then(() => { this.storageError = false })
+        .catch(() => { this.storageError = true })
     },
     retryDetails() {
       this.appStore.setAnalysisSnapshot(null)
@@ -474,8 +424,6 @@ export default {
 
 <style scoped>
 .score { min-height: 100dvh; padding: 1.5rem; color: #f7fbf4; background: #16382a; }
-.score__history-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-.score__history-row > div { flex: 1; }
 
 .score__content { width: min(68rem, 100%); margin: auto; }
 .score__header, .score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
