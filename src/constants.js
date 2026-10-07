@@ -40,6 +40,7 @@ export default {
   OSM_NOMINATIM_LOOKUP_URL: 'https://nominatim.openstreetmap.org/lookup',
   OSM_PHOTON_URL: 'https://photon.komoot.io',
   OSM_PHOTON_SEARCH_URL: 'https://photon.komoot.io/api/',
+  OSM_PHOTON_REVERSE_URL: 'https://photon.komoot.io/reverse',
   // Skip broad place / highway results so shop search stays useful.
   NOMINATIM_RESULT_TYPE_EXCLUDE_LIST: [
     'country', 'state', 'region', 'province', 'district', 'county', 'municipality', 'city',
