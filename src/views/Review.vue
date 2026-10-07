@@ -57,6 +57,7 @@
                 :label="$t('review.location')"
                 :placeholder="$t('review.locationPlaceholder')"
                 prepend-inner-icon="mdi-map-marker-outline"
+                append-inner-icon="mdi-crosshairs-gps"
                 variant="outlined"
                 density="comfortable"
                 class="review__meta-field"
@@ -64,6 +65,7 @@
                 @update:model-value="onLocationSelected"
                 @update:search="onLocationSearch"
                 @click:clear="clearLocation"
+                @click:append-inner="geolocateUser"
               />
               <p
                 class="review__contribute-hint"
@@ -883,11 +885,33 @@ export default {
         this.clearLocation()
         return
       }
+
+      // 1. Quick mapping of country codes to currencies (add more as needed)
+      const countryCurrencyMap = {
+        'es': 'EUR', 'fr': 'EUR', 'de': 'EUR', 'it': 'EUR', 'pt': 'EUR', 'nl': 'EUR', 'be': 'EUR',
+        'us': 'USD',
+        'gb': 'GBP',
+        'mx': 'MXN',
+        'ar': 'ARS',
+        'co': 'COP',
+        'pe': 'PEN',
+        'cl': 'CLP'
+      }
+
+      let currencyUpdate = {}
+      if (option.countryCode) {
+        const code = option.countryCode.toLowerCase()
+        if (countryCurrencyMap[code]) {
+          currencyUpdate = { currency: countryCurrencyMap[code] }
+        }
+      }
+
       this.appStore.updateReceiptMeta({
         locationOsmId: option.osmId,
         locationOsmType: option.osmType,
         locationName: option.name || option.label,
-        contributePrices: true
+        contributePrices: true,
+        ...currencyUpdate
       })
       this.locationMessage = null
     },
@@ -932,6 +956,52 @@ export default {
           this.locationSearching = false
         })
     },
+    geolocateUser() {
+      if (!navigator.geolocation) {
+        this.locationMessageType = 'error'
+        this.locationMessage = 'Your browser does not support geolocation.'
+        return
+      }
+
+      this.locationSearching = true
+      this.locationMessage = 'Locating...'
+      this.locationMessageType = 'info'
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          openStreetMapApi.openstreetmapPhotonReverse(latitude, longitude)
+            .then((results) => {
+              const options = (results || [])
+                .map((result) => this.normalizePhotonResult(result))
+                .filter(Boolean)
+
+              this.locationOptions = options
+              if (!options.length) {
+                this.locationMessageType = 'warning'
+                this.locationMessage = 'No shops found nearby.'
+              } else {
+                this.locationMessage = null
+                this.locationQuery = options[0].label
+              }
+            })
+            .catch(() => {
+              this.locationOptions = []
+              this.locationMessageType = 'error'
+              this.locationMessage = 'Error searching for nearby shops.'
+            })
+            .finally(() => {
+              this.locationSearching = false
+            })
+        },
+        () => {
+          this.locationSearching = false
+          this.locationMessageType = 'error'
+          this.locationMessage = 'Permission denied or GPS error.'
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    },
     normalizePhotonResult(feature) {
       const props = feature?.properties || {}
       const osmId = props.osm_id
@@ -952,7 +1022,8 @@ export default {
         label,
         name: props.name || label,
         osmId: Number(osmId),
-        osmType
+        osmType,
+        countryCode: props.countrycode || null
       }
     },
     normalizeOsmType(value) {
