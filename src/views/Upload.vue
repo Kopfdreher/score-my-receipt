@@ -50,6 +50,7 @@
 
 <script>
 import { useAppStore } from '@/store'
+import openFoodFactsApi from '@/services/openFoodFactsApi'
 import openPricesApi from '@/services/openPricesApi'
 
 const POLL_INTERVAL_MS = 2000
@@ -104,18 +105,29 @@ export default {
             .then((rows) => ({ proofId, rows }))
         })
         .then(({ proofId, rows }) => {
-          store.setReceiptFromCapture({
-            proofId,
-            date,
-            currency,
-            locationOsmId: null,
-            locationOsmType: null,
-            imagePreviewUrl,
-            status: rows.length ? 'ready' : 'error',
-            errorMessage: rows.length ? null : this.$t('upload.error'),
-            items: rows.map((row) => this.mapReceiptItem(row))
-          })
-          return this.$router.push({ name: 'review' })
+          const mapped = rows.map((row) => this.mapReceiptItem(row))
+          return openFoodFactsApi.searchProductsByCodes(mapped.map((item) => item.barcode))
+            .then((found) => mapped.map((item) => (
+              item.barcode && !this.barcodeIsKnown(item.barcode, found)
+                ? { ...item, barcode: null }
+                : item
+            )))
+            .catch(() => mapped)
+            .then((checked) => Promise.all(checked.map((item) => this.matchReceiptItem(item))))
+            .then((items) => {
+              store.setReceiptFromCapture({
+                proofId,
+                date,
+                currency,
+                locationOsmId: null,
+                locationOsmType: null,
+                imagePreviewUrl,
+                status: items.length ? 'ready' : 'error',
+                errorMessage: items.length ? null : this.$t('upload.error'),
+                items
+              })
+              return this.$router.push({ name: 'review' })
+            })
         })
         .catch(() => {
           URL.revokeObjectURL(imagePreviewUrl)
@@ -145,23 +157,63 @@ export default {
       return []
     },
     mapReceiptItem(row) {
-      const predicted = row.predicted_data && typeof row.predicted_data === 'object'
+      const source = row.predicted_data && typeof row.predicted_data === 'object'
         ? row.predicted_data
         : {}
-      const data = row.data && typeof row.data === 'object' ? row.data : {}
-      const source = Object.keys(predicted).length ? predicted : data
-      const barcode = source.product_code || source.barcode || null
-      const categoryTag = source.category_tag || null
-      const price = source.price ?? source.price_total ?? null
       return {
         id: row.id,
-        name: source.product_name || source.name || '',
-        price,
+        name: source.product_name || '',
+        price: source.price ?? source.price_total ?? null,
         quantity: source.quantity ?? 1,
-        barcode: barcode || null,
-        categoryTag: categoryTag || null,
+        barcode: source.product_code || null,
+        categoryTag: source.category_tag || null,
         off: null
       }
+    },
+    barcodeIsKnown(barcode, found) {
+      const digits = String(barcode || '').trim()
+      const stripped = digits.replace(/^0+/, '') || '0'
+      return found.has(digits) || found.has(stripped)
+    },
+    matchReceiptItem(item) {
+      if (item.barcode) return Promise.resolve(item)
+      if (!item.name) return Promise.resolve(item)
+
+      return openFoodFactsApi.searchProductByName(item.name)
+        .then((match) => {
+          if (match && match.confident && match.code) {
+            return {
+              ...item,
+              barcode: match.code,
+              categoryTag: null
+            }
+          }
+          return this.categoryFallback(item, match)
+        })
+        .catch(() => this.categoryFallback(item, null))
+    },
+    categoryFallback(item, match) {
+      const kept = this.keptCategoryTag(item.categoryTag)
+      if (kept) {
+        return Promise.resolve({ ...item, barcode: null, categoryTag: kept })
+      }
+      return openFoodFactsApi.suggestCategoryTag(item.name)
+        .then((tag) => {
+          const categoryTag = tag || (match && match.categoryTag) || null
+          if (!categoryTag) return item
+          return { ...item, barcode: null, categoryTag }
+        })
+        .catch(() => {
+          if (!match || !match.categoryTag) return item
+          return { ...item, barcode: null, categoryTag: match.categoryTag }
+        })
+    },
+    isGeminiCategory(tag) {
+      const value = String(tag || '').trim()
+      return value.startsWith('en:') && value !== 'en:other'
+    },
+    keptCategoryTag(tag) {
+      return this.isGeminiCategory(tag) ? String(tag).trim() : null
     },
     localDate() {
       const now = new Date()
@@ -174,6 +226,7 @@ export default {
       const region = (locale.split('-')[1] || '').toUpperCase()
       if (region === 'US') return 'USD'
       if (region === 'GB') return 'GBP'
+	  if (region == 'COL') return 'COP'
       return 'EUR'
     },
     clearPoll() {
