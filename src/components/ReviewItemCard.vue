@@ -33,33 +33,28 @@
     </td>
 
     <td class="review-row__text">
-      <v-text-field
-        :model-value="item.name"
-        variant="plain"
-        density="compact"
-        hide-details
-        single-line
-        class="review-row__input review-row__input--name"
-        :placeholder="$t('review.name')"
-        @update:model-value="$emit('update', item.id, { name: $event })"
-      />
       <button
-        v-if="matchedName"
         type="button"
-        class="review-row__matched-link"
+        class="review-row__name-button"
+        :aria-label="$t('review.reviewItem')"
         @click="$emit('preview', item.id)"
       >
-        {{ matchedName }}
+        <span class="review-row__name">
+          {{ item.name || $t('review.name') }}
+        </span>
+        <span v-if="matchedName" class="review-row__matched-link">
+          {{ matchedName }}
+        </span>
+        <span v-else-if="categoryLabel" class="review-row__category">
+          {{ $t('review.categorySelected', { category: categoryLabel }) }}
+        </span>
+        <span v-else-if="isNoBarcodeMarked" class="review-row__category review-row__category--muted">
+          {{ $t('review.noBarcodeAvailable') }}
+        </span>
+        <span v-else-if="!item.barcode" class="review-row__category review-row__category--muted">
+          {{ $t('review.noBarcode') }}
+        </span>
       </button>
-      <p v-else-if="categoryLabel" class="review-row__category">
-        {{ $t('review.categorySelected', { category: categoryLabel }) }}
-      </p>
-      <p v-else-if="isNoBarcodeMarked" class="review-row__category review-row__category--muted">
-        {{ $t('review.noBarcodeAvailable') }}
-      </p>
-      <p v-else-if="!item.barcode" class="review-row__category review-row__category--muted">
-        {{ $t('review.noBarcode') }}
-      </p>
     </td>
 
     <td class="review-row__barcode">
@@ -109,32 +104,35 @@
 
     <td class="review-row__qty">
       <div class="review-row__qty-wrap">
-        <span class="review-row__qty-prefix" aria-hidden="true">x</span>
         <v-text-field
           :model-value="item.quantity"
           type="number"
-          step="1"
-          min="1"
+          :step="quantityStep"
+          min="0"
           variant="outlined"
           density="compact"
           hide-details
           single-line
           class="review-row__input review-row__input--qty"
+          :aria-label="$t('review.quantity')"
           @update:model-value="$emit('update', item.id, { quantity: parseQuantity($event) })"
+        />
+        <v-select
+          :model-value="item.quantityUnit || 'pcs'"
+          :items="quantityUnitOptions"
+          item-title="title"
+          item-value="value"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="review-row__input review-row__input--unit"
+          :aria-label="$t('review.quantityUnit')"
+          @update:model-value="$emit('update', item.id, { quantityUnit: $event || 'pcs' })"
         />
       </div>
     </td>
 
     <td class="review-row__actions">
-      <v-btn
-        icon="mdi-eye-outline"
-        variant="text"
-        size="small"
-        density="comfortable"
-        color="primary"
-        :aria-label="$t('review.reviewItem')"
-        @click="$emit('preview', item.id)"
-      />
       <v-btn
         icon="mdi-delete-outline"
         variant="text"
@@ -150,6 +148,7 @@
 
 <script>
 import constants from '@/constants'
+import openFoodFactsCategories from '@/services/openFoodFactsCategories'
 
 export default {
   name: 'ReviewItemCard',
@@ -199,12 +198,16 @@ export default {
       }
       return this.$t('review.barcodePlaceholder')
     },
+    quantityUnitOptions() {
+      return constants.QUANTITY_UNIT_OPTIONS
+    },
+    quantityStep() {
+      const unit = this.item.quantityUnit || 'pcs'
+      return (unit === 'pcs' || unit === 'pack') ? '1' : '0.001'
+    },
     categoryLabel() {
       if (!this.item.categoryTag) return null
-      const match = constants.PRODUCT_CATEGORY_OPTIONS.find(
-        (entry) => entry.value === this.item.categoryTag
-      )
-      return match?.title || this.item.categoryTag.replace(/^en:/, '')
+      return openFoodFactsCategories.getCategoryName(this.item.categoryTag)
     },
     statusIcon() {
       if (this.isVerified) return 'mdi-check-circle'
@@ -229,7 +232,8 @@ export default {
     },
     parseQuantity(value) {
       const parsed = this.parseNumber(value)
-      return parsed && parsed > 0 ? parsed : 1
+      if (parsed === null || parsed <= 0) return 1
+      return parsed
     },
     normalizeOptional(value) {
       const trimmed = String(value || '').trim()
@@ -300,23 +304,45 @@ export default {
   min-width: 10rem;
 }
 
-.review-row__matched-link {
+.review-row__name-button {
   display: block;
-  margin-top: 0.1rem;
-  padding: 0;
+  width: 100%;
+  padding: 0.1rem 0;
   border: 0;
   background: transparent;
-  color: rgba(14, 36, 28, 0.62);
-  font-size: 0.75rem;
-  line-height: 1.25;
   text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
   cursor: pointer;
 }
 
+.review-row__name-button:hover .review-row__name,
+.review-row__name-button:focus-visible .review-row__name {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.review-row__name {
+  display: block;
+  color: #0E241C;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.review-row__matched-link {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(14, 36, 28, 0.62);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
 .review-row__category {
-  margin: 0.15rem 0 0;
+  display: block;
+  margin-top: 0.15rem;
   font-size: 0.75rem;
   color: rgba(14, 36, 28, 0.66);
 }
@@ -340,11 +366,11 @@ export default {
 }
 
 .review-row__qty {
-  width: 6.5rem;
+  width: 10.5rem;
 }
 
 .review-row__actions {
-  width: 5.5rem;
+  width: 3rem;
   white-space: nowrap;
   text-align: right;
 }
@@ -353,11 +379,10 @@ export default {
 .review-row__qty-wrap {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 
-.review-row__currency,
-.review-row__qty-prefix {
+.review-row__currency {
   color: rgba(14, 36, 28, 0.55);
   font-size: 0.85rem;
   font-weight: 500;
@@ -367,25 +392,18 @@ export default {
   font-size: 0.92rem;
 }
 
-.review-row__input--name :deep(.v-field__input) {
-  padding-inline: 0;
-  min-height: 30px;
-  color: #0E241C;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-}
-
 .review-row__input--barcode :deep(.v-field),
 .review-row__input--price :deep(.v-field),
-.review-row__input--qty :deep(.v-field) {
+.review-row__input--qty :deep(.v-field),
+.review-row__input--unit :deep(.v-field) {
   border-radius: 0.45rem;
   background: #fff;
 }
 
 .review-row__input--barcode :deep(.v-field__input),
 .review-row__input--price :deep(.v-field__input),
-.review-row__input--qty :deep(.v-field__input) {
+.review-row__input--qty :deep(.v-field__input),
+.review-row__input--unit :deep(.v-field__input) {
   min-height: 34px;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -401,6 +419,15 @@ export default {
 }
 
 .review-row__input--qty {
-  width: 4.25rem;
+  width: 4.5rem;
+}
+
+.review-row__input--unit {
+  width: 5rem;
+  flex-shrink: 0;
+}
+
+.review-row__input--unit :deep(.v-field__input) {
+  font-size: 0.8rem;
 }
 </style>

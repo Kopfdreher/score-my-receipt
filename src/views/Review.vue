@@ -84,11 +84,29 @@
     </section>
 
     <section class="review__panel">
-      <div class="review__panel-head">
+      <div class="review__panel-head review__panel-head--row">
         <h2 class="review__panel-title">
           {{ $t('review.itemsTitle') }}
         </h2>
+        <v-btn
+          color="primary"
+          size="small"
+          prepend-icon="mdi-cloud-download-outline"
+          :loading="fetchingProducts"
+          :disabled="!barcodeCount || fetchingProducts"
+          @click="fetchAllProductInfo"
+        >
+          {{ $t('review.fetchAllProducts') }}
+        </v-btn>
       </div>
+      <v-alert
+        v-if="fetchMessage"
+        class="mb-2"
+        :type="fetchMessageType"
+        variant="tonal"
+        density="compact"
+        :text="fetchMessage"
+      />
 
       <div v-if="items.length" class="review__table-wrap">
         <table class="review__table">
@@ -147,41 +165,46 @@
       </div>
 
       <div class="review__panel-foot">
-        <v-chip size="small" variant="tonal" color="primary">
+        <v-chip
+          v-if="items.length"
+          size="small"
+          variant="tonal"
+          color="primary"
+        >
           {{ $t('review.summary', { count: items.length, total: formattedTotal }) }}
         </v-chip>
-
-        <div class="review__panel-foot-actions">
-          <v-btn
-            variant="tonal"
-            color="primary"
-            size="small"
-            prepend-icon="mdi-cloud-download-outline"
-            :loading="fetchingProducts"
-            :disabled="!barcodeCount || fetchingProducts"
-            @click="fetchAllProductInfo"
-          >
-            {{ $t('review.fetchAllProducts') }}
-          </v-btn>
-          <v-btn
-            color="primary"
-            size="small"
-            prepend-icon="mdi-plus"
-            @click="onAddItem"
-          >
-            {{ $t('review.addItem') }}
-          </v-btn>
-        </div>
+        <v-spacer />
+        <v-btn
+          color="primary"
+          size="small"
+          prepend-icon="mdi-plus"
+          @click="onAddItem"
+        >
+          {{ $t('review.addItem') }}
+        </v-btn>
       </div>
 
-      <v-alert
-        v-if="fetchMessage"
-        class="mt-3"
-        :type="fetchMessageType"
-        variant="tonal"
-        density="compact"
-        :text="fetchMessage"
-      />
+      <div v-if="items.length" class="review__contribute-send">
+        <div class="review__contribute-send-copy">
+          <p class="review__contribute-send-status">
+            {{ contributeStatus }}
+          </p>
+          <p class="review__contribute-send-hint">
+            {{ $t('review.contributeSendHint') }}
+          </p>
+        </div>
+        <v-btn
+          color="primary"
+          size="large"
+          prepend-icon="mdi-cloud-upload-outline"
+          :loading="contributing"
+          :disabled="!canSendContribute"
+          @click="sendContributePrices"
+        >
+          {{ $t('review.contributeSend') }}
+        </v-btn>
+      </div>
+
       <v-alert
         v-if="locationMessage"
         class="mt-3"
@@ -189,6 +212,14 @@
         variant="tonal"
         density="compact"
         :text="locationMessage"
+      />
+      <v-alert
+        v-if="contributeMessage"
+        class="mt-3"
+        :type="contributeMessageType"
+        variant="tonal"
+        density="compact"
+        :text="contributeMessage"
       />
     </section>
 
@@ -294,15 +325,28 @@
             </template>
           </p>
 
+          <div class="review-preview__name-edit">
+            <p class="review-preview__match-label">
+              {{ $t('review.receiptName') }}
+            </p>
+            <v-text-field
+              :model-value="previewItem.name"
+              variant="outlined"
+              density="compact"
+              hide-details
+              single-line
+              :placeholder="$t('review.name')"
+              class="review-preview__name-field"
+              @update:model-value="onPreviewNameChange"
+            />
+          </div>
+
           <div v-if="previewMatchedName && !previewCorrecting" class="review-preview__match">
             <p class="review-preview__match-label">
               {{ $t('review.matchedProduct') }}
             </p>
             <p class="review-preview__match-name">
               {{ previewMatchedName }}
-            </p>
-            <p v-if="previewItem.name" class="review-preview__receipt-name">
-              {{ $t('review.receiptName') }}: {{ previewItem.name }}
             </p>
             <p v-if="previewNameLooksDifferent" class="review-preview__warning">
               {{ $t('review.nameMismatchHint') }}
@@ -396,18 +440,26 @@
             <p class="review-preview__match-label">
               {{ $t('review.useCategory') }}
             </p>
+            <p class="review-preview__hint">
+              {{ $t('review.categoryHint') }}
+            </p>
             <v-autocomplete
+              v-model:search="categorySearch"
               :model-value="previewItem.categoryTag"
-              :items="categoryOptions"
+              :items="filteredCategoryOptions"
               item-title="title"
               item-value="value"
               clearable
+              no-filter
+              auto-select-first
               variant="outlined"
               density="compact"
               hide-details
               :placeholder="$t('review.categoryPlaceholder')"
+              :no-data-text="$t('review.categoryNoMatch')"
               class="review-preview__category-field"
               @update:model-value="onPreviewCategoryChange"
+              @update:search="onCategorySearch"
             />
             <div class="review-preview__actions">
               <v-btn
@@ -421,14 +473,24 @@
               <v-btn
                 size="small"
                 color="primary"
-                :disabled="!previewItem.categoryTag"
+                :loading="categoryImageLoading"
+                :disabled="!previewItem.categoryTag || categoryImageLoading"
                 @click="confirmCategory(previewItem.id)"
               >
                 {{ $t('review.confirmCategory') }}
               </v-btn>
             </div>
-            <p v-if="previewItem.verified && !previewMatchedName" class="review-preview__confirmed">
-              {{ previewItem.categoryTag ? $t('review.productConfirmed') : $t('review.noBarcodeConfirmed') }}
+            <p v-if="categoryImageLoading" class="review-preview__hint">
+              {{ $t('review.categoryImageLoading') }}
+            </p>
+            <p v-if="previewItem.verified && previewItem.categoryTag" class="review-preview__confirmed">
+              {{ $t('review.productConfirmed') }}
+            </p>
+            <p v-else-if="previewItem.noBarcodeAvailable && !previewItem.categoryTag" class="review-preview__hint">
+              {{ $t('review.noBarcodeConfirmed') }}
+            </p>
+            <p v-if="categoryImageMessage" class="review-preview__hint">
+              {{ categoryImageMessage }}
             </p>
           </div>
         </v-card-text>
@@ -461,8 +523,9 @@ import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
-import openPricesApi from '@/services/openPricesApi'
+import openFoodFactsCategories from '@/services/openFoodFactsCategories'
 import openStreetMapApi from '@/services/openStreetMapApi'
+import openPricesApi from '@/services/openPricesApi'
 import constants from '@/constants'
 
 const OSM_TYPE_MAP = {
@@ -503,7 +566,12 @@ export default {
       locationMessageType: 'info',
       selectedLocation: null,
       contributing: false,
-      currencyOptions: ['EUR', 'USD', 'GBP']
+      currencyOptions: ['EUR', 'USD', 'GBP'],
+      contributeMessage: null,
+      contributeMessageType: 'info',
+      categorySearch: '',
+      categoryImageLoading: false,
+      categoryImageMessage: null
     }
   },
   computed: {
@@ -538,8 +606,9 @@ export default {
       if (!receipt || !matched) return false
       return receipt !== matched && !receipt.includes(matched) && !matched.includes(receipt)
     },
-    categoryOptions() {
-      return constants.PRODUCT_CATEGORY_OPTIONS
+    filteredCategoryOptions() {
+      // Keep the full OFF list outside Vue reactive state; only expose the filtered slice.
+      return openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
     },
     showPreviewBarcodeEdit() {
       if (!this.previewItem) return false
@@ -572,6 +641,36 @@ export default {
     },
     contributePrices() {
       return Boolean(this.receipt?.contributePrices && this.canContribute)
+    },
+    pendingVerificationCount() {
+      return this.items.filter((item) => !item.verified).length
+    },
+    sentPriceCount() {
+      return this.items.filter((item) => this.itemPriceAlreadySent(item)).length
+    },
+    contributableItems() {
+      return this.items.filter((item) => this.itemCanContribute(item) && !this.itemPriceAlreadySent(item))
+    },
+    contributeStatus() {
+      if (!this.contributableItems.length && this.sentPriceCount) {
+        return this.$t('review.contributeAlreadySent', { count: this.sentPriceCount })
+      }
+      if (this.pendingVerificationCount) {
+        return this.$t('review.contributePending', {
+          count: this.contributableItems.length,
+          pending: this.pendingVerificationCount
+        })
+      }
+      return this.$t('review.contributeReady', { count: this.contributableItems.length })
+    },
+    canSendContribute() {
+      return Boolean(
+        this.appStore.user?.token
+        && this.canContribute
+        && this.receiptDate
+        && this.contributableItems.length
+        && !this.contributing
+      )
     },
     total() {
       return this.items.reduce((sum, item) => {
@@ -765,7 +864,8 @@ export default {
       if (Object.prototype.hasOwnProperty.call(patch, 'noBarcodeAvailable') && patch.noBarcodeAvailable) {
         nextPatch.barcode = null
         nextPatch.off = null
-        nextPatch.verified = true
+        // Marking "no barcode" alone is not verification — category must be confirmed.
+        nextPatch.verified = false
       }
 
       this.appStore.updateItem(id, nextPatch)
@@ -782,6 +882,7 @@ export default {
         name: '',
         price: null,
         quantity: 1,
+        quantityUnit: 'pcs',
         barcode: null,
         categoryTag: null,
         off: null
@@ -926,15 +1027,63 @@ export default {
     },
     confirmCategory(itemId) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
-      if (!item?.categoryTag) return
+      if (!item?.categoryTag || this.categoryImageLoading) return
+
+      const categoryName = openFoodFactsCategories.getCategoryName(item.categoryTag)
+      this.categoryImageLoading = true
+      this.categoryImageMessage = null
+
       this.appStore.updateItem(itemId, {
         verified: true,
         barcode: null,
-        off: null,
-        noBarcodeAvailable: false
+        noBarcodeAvailable: true,
+        off: {
+          product_name: categoryName,
+          nutriscore_grade: null,
+          nova_group: null,
+          ecoscore_grade: null,
+          image_front_small_url: null,
+          image_front_url: null,
+          brands: null,
+          quantity: null
+        }
       })
       this.previewCorrecting = false
       this.previewNoBarcodeMode = true
+
+      openFoodFactsApi.openfoodfactsCategoryImageSearch(item.categoryTag)
+        .then((imageData) => {
+          const current = this.appStore.getItems.find((entry) => entry.id === itemId)
+          if (!current || current.categoryTag !== item.categoryTag) return
+
+          if (!imageData || !(imageData.image_front_small_url || imageData.image_front_url)) {
+            this.categoryImageMessage = this.$t('review.categoryImageError')
+            return
+          }
+
+          this.appStore.updateItem(itemId, {
+            off: {
+              ...(current.off || {}),
+              product_name: categoryName,
+              image_front_small_url: imageData.image_front_small_url || null,
+              image_front_url: imageData.image_front_url || imageData.image_front_small_url || null
+            }
+          })
+          this.categoryImageMessage = null
+        })
+        .catch(() => {
+          this.categoryImageMessage = this.$t('review.categoryImageError')
+        })
+        .finally(() => {
+          this.categoryImageLoading = false
+        })
+    },
+    onCategorySearch(query) {
+      this.categorySearch = query || ''
+    },
+    onPreviewNameChange(value) {
+      if (!this.previewItemId) return
+      this.appStore.updateItem(this.previewItemId, { name: value || '' })
     },
     onPreviewCategoryChange(categoryTag) {
       if (!this.previewItemId) return
@@ -942,11 +1091,15 @@ export default {
         categoryTag: categoryTag || null,
         barcode: null,
         verified: false,
-        off: null
+        off: null,
+        noBarcodeAvailable: true
       })
       this.previewNoBarcodeMode = true
       this.previewCorrecting = false
       this.previewBarcodeDraft = ''
+      if (categoryTag) {
+        this.categorySearch = openFoodFactsCategories.getCategoryName(categoryTag) || ''
+      }
     },
     markNoBarcodeAvailable(itemId) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
@@ -954,7 +1107,7 @@ export default {
       this.appStore.updateItem(itemId, {
         barcode: null,
         off: null,
-        verified: Boolean(item.categoryTag),
+        verified: false,
         noBarcodeAvailable: true,
         categoryTag: item.categoryTag || null
       })
@@ -1001,6 +1154,9 @@ export default {
         this.previewLookingUp = false
         this.previewPhotoMessage = null
         this.previewItemId = null
+        this.categorySearch = ''
+        this.categoryImageLoading = false
+        this.categoryImageMessage = null
       }
     },
     openProductPreview(itemId) {
@@ -1014,6 +1170,11 @@ export default {
       )
       this.previewLookingUp = false
       this.previewPhotoMessage = null
+      this.categoryImageLoading = false
+      this.categoryImageMessage = null
+      this.categorySearch = item?.categoryTag
+        ? (openFoodFactsCategories.getCategoryName(item.categoryTag) || '')
+        : ''
     },
     openGalleryPhotoPicker() {
       this.previewPhotoMessage = null
@@ -1125,9 +1286,150 @@ export default {
         payload.category_tag = item.categoryTag
       }
       return payload
+    },
+    buildPricePayload(item) {
+      const price = Number(item.price)
+      const quantity = Number(item.quantity)
+      const payload = {
+        price,
+        currency: this.currency,
+        date: this.receiptDate,
+        location_osm_id: this.receipt.locationOsmId,
+        location_osm_type: this.receipt.locationOsmType,
+        receipt_quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+      }
+
+      if (this.receipt.proofId) {
+        payload.proof_id = this.receipt.proofId
+      }
+
+      if (item.barcode) {
+        payload.type = constants.PRICE_TYPE_PRODUCT
+        payload.product_code = String(item.barcode)
+      } else if (item.categoryTag) {
+        payload.type = constants.PRICE_TYPE_CATEGORY
+        payload.category_tag = item.categoryTag
+        const unit = item.quantityUnit || 'pcs'
+        payload.price_per = (unit === 'kg' || unit === 'g') ? 'KILOGRAM' : 'UNIT'
+      }
+
+      return payload
+    },
+    itemCanContribute(item) {
+      if (!item?.verified) return false
+      if (!Number.isFinite(Number(item.price))) return false
+      return Boolean(item.barcode || item.categoryTag)
+    },
+    pricePayloadKey(payload) {
+      const identity = payload.product_code || payload.category_tag || ''
+      return [
+        payload.type,
+        identity,
+        Number(payload.price),
+        payload.currency,
+        payload.date,
+        payload.location_osm_id,
+        payload.location_osm_type,
+        payload.price_per || ''
+      ].join('|')
+    },
+    itemPriceAlreadySent(item) {
+      if (!item || !this.itemCanContribute(item)) return Boolean(item?.priceSent)
+      if (item.priceSent) return true
+      const keys = this.receipt?.sentPriceKeys || []
+      if (!keys.length) return false
+      return keys.includes(this.pricePayloadKey(this.buildPricePayload(item)))
+    },
+    sendContributePrices() {
+      this.contributeMessage = null
+
+      if (!this.appStore.user?.token) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedSignIn')
+        return
+      }
+      if (!this.canContribute) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedLocation')
+        return
+      }
+      if (!this.receiptDate) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedDate')
+        return
+      }
+
+      const seen = new Set(this.receipt.sentPriceKeys || [])
+      const queued = []
+      this.contributableItems.forEach((item) => {
+        const payload = this.buildPricePayload(item)
+        const key = this.pricePayloadKey(payload)
+        if (seen.has(key)) return
+        seen.add(key)
+        queued.push({ item, payload, key })
+      })
+
+      if (!queued.length) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNothingToSend')
+        return
+      }
+
+      // Button click is the contribute action — keep the toggle in sync.
+      this.appStore.updateReceiptMeta({ contributePrices: true })
+      this.contributing = true
+
+      Promise.allSettled(
+        queued.map((entry) => openPricesApi.createPrice(entry.payload, 'review'))
+      )
+        .then((results) => {
+          const succeededKeys = new Set()
+          results.forEach((result, index) => {
+            if (result.status !== 'fulfilled') return
+            succeededKeys.add(queued[index].key)
+            this.appStore.updateItem(queued[index].item.id, { priceSent: true })
+          })
+
+          if (succeededKeys.size) {
+            const nextKeys = new Set([...(this.receipt.sentPriceKeys || []), ...succeededKeys])
+            this.appStore.updateReceiptMeta({ sentPriceKeys: [...nextKeys] })
+            this.items.forEach((item) => {
+              if (item.priceSent || !this.itemCanContribute(item)) return
+              const key = this.pricePayloadKey(this.buildPricePayload(item))
+              if (succeededKeys.has(key)) {
+                this.appStore.updateItem(item.id, { priceSent: true })
+              }
+            })
+          }
+
+          const sent = succeededKeys.size
+          const failed = results.length - sent
+          if (!failed) {
+            this.contributeMessageType = 'success'
+            this.contributeMessage = this.$t('review.contributeSuccess', {
+              sent,
+              total: results.length
+            })
+            return
+          }
+          this.contributeMessageType = sent ? 'warning' : 'error'
+          this.contributeMessage = this.$t('review.contributePartial', {
+            sent,
+            total: results.length,
+            failed
+          })
+        })
+        .catch(() => {
+          this.contributeMessageType = 'error'
+          this.contributeMessage = this.$t('review.contributeError')
+        })
+        .finally(() => {
+          this.contributing = false
+        })
     }
   }
 }
+
 </script>
 
 <style scoped>
@@ -1177,6 +1479,14 @@ export default {
 .review__panel-head {
   margin-bottom: 0.35rem;
   padding: 0 0.25rem;
+}
+
+.review__panel-head--row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
 }
 
 .review__panel-title {
@@ -1255,6 +1565,38 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.review__contribute-send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  border-radius: 0.65rem;
+  background: rgba(31, 107, 74, 0.08);
+  border: 1px solid rgba(31, 107, 74, 0.18);
+}
+
+.review__contribute-send-copy {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.review__contribute-send-status {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #0E241C;
+}
+
+.review__contribute-send-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: rgba(14, 36, 28, 0.62);
 }
 
 .review__empty {
@@ -1416,6 +1758,29 @@ export default {
   font-size: 0.75rem;
   font-weight: 600;
   color: #1F6B4A;
+}
+
+.review-preview__hint {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: rgba(14, 36, 28, 0.6);
+}
+
+.review-preview__name-edit {
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(14, 36, 28, 0.1);
+  text-align: left;
+}
+
+.review-preview__name-field {
+  margin-top: 0.3rem;
+}
+
+.review-preview__name-field :deep(.v-field) {
+  border-radius: 0.5rem;
+  background: #fff;
 }
 
 .review-preview__edit,
