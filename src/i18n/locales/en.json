@@ -136,7 +136,13 @@
         "d": "Poor choice",
         "e": "Choice worth swapping"
       },
-      "unknown": "Not rated: no data for this product"
+      "unknown": "Not rated: no data for this product",
+      "forest": {
+        "a": "No deforestation risk identified",
+        "b": "Low deforestation risk",
+        "c": "Medium deforestation risk",
+        "d": "High deforestation risk"
+      }
     },
     "summary": {
       "units": "Most of your items are {grade} ({meaning}): {percent}.",
@@ -161,6 +167,88 @@
       "moderate": "EFSA found a moderate risk of eating too much of it",
       "no": "EFSA evaluated it and found no risk of overexposure",
       "unknown": "no EFSA overexposure evaluation available yet"
+    },
+    "ui": {
+      "eyebrow": "Your shopping, explained",
+      "title": "Inside your basket",
+      "health": "Health",
+      "environment": "Environment",
+      "processing": "Processing · NOVA",
+      "forest": "Forest footprint",
+      "rated": "rated products",
+      "productsCount": "{n} product | {n} products",
+      "coverage": "Based on {known} of {total} products",
+      "about": "About {title}",
+      "estimated": "Estimated",
+      "weight": "Known weight: {weight}",
+      "shoppingWeight": "Shopping weight",
+      "productsByGrade": "Explore grades & products",
+      "viewAdditives": "Explore additives",
+      "additives": "{additives} in {products}",
+      "additiveMissing": "{without} without additives · {unknown} unknown",
+      "nutritionDetails": "More nutrition details",
+      "wholeBasket": "Totals for the quantities you bought",
+      "contributingProducts": "Products included",
+      "labels": "Organic & fair trade",
+      "closerLook": "Take a closer look",
+      "personalise": "Optional checks",
+      "remembered": "Your choices are remembered on this device.",
+      "allergenCheck": "Check allergens",
+      "nutrientFilters": "Also highlight",
+      "allergenResults": "Your allergen checks",
+      "highlights": "Products worth reviewing",
+      "highlightCount": "{count} of {total} products highlighted",
+      "noHighlights": "No products match the selected checks. Missing data is not an all-clear.",
+      "allProducts": "View all products ({count})",
+      "purchased": "Quantity bought: {quantity}",
+      "noSource": "No product or category source available",
+      "referenceInfo": "Category estimate using {name}. Nutrients are per 100 g of edible food; peel and other inedible parts may affect totals. Missing grades are not inferred.",
+      "glutenFreeLabels": "Among products with no gluten listed: {count} labelled gluten-free.",
+      "weightInfo": "Based on {known} of {total} products. Uses total receipt weight where supplied, otherwise package mass × quantity. Volume is not converted to weight.",
+      "basketInfo": "Charts count distinct products, not packages or weight. Repeated barcodes are merged. Loose produce with the same reference and analysis data is merged; purchased amounts still contribute to totals. Category averages are labelled Estimated. Unknown values remain unknown.",
+      "high": {
+        "sugars": "High sugar",
+        "salt": "High salt",
+        "fat": "High fat"
+      },
+      "allergenStatus": {
+        "contains": "Contains",
+        "mayContain": "May contain",
+        "unknown": "Unknown",
+        "notListed": "Not listed in available ingredients"
+      },
+      "allergens": {
+        "gluten": "Gluten",
+        "milk": "Milk",
+        "eggs": "Eggs",
+        "nuts": "Tree nuts",
+        "peanuts": "Peanuts",
+        "soybeans": "Soy",
+        "sesame-seeds": "Sesame",
+        "fish": "Fish",
+        "crustaceans": "Crustaceans",
+        "molluscs": "Molluscs",
+        "celery": "Celery",
+        "mustard": "Mustard",
+        "lupin": "Lupin",
+        "sulphur-dioxide-and-sulphites": "Sulphites"
+      },
+      "info": {
+        "nutriscore": "Published Nutri-Score grades, A–E. Each distinct product counts once; no basket average is calculated. Unknown includes products without a published grade. Select a grade to see its products.",
+        "nova": "Processing groups, 1–4. Group 4 is ultra-processed. Confirmed raw-produce references are classified as group 1 using the NOVA definition and labelled Estimated. Other missing groups stay unknown.",
+        "greenScore": "Published Green-Score grades, A+–F. Each distinct product counts once. No average or category grade is invented; unknown products stay visible. Select a grade to see its products.",
+        "forest": "Open Food Facts forest footprint 2026 grades, A–D. This describes ingredient-associated deforestation risk, not confirmed forest clearing. Only published grades are used; older or missing assessments stay unknown.",
+        "additives": "Distinct additive tags reported by Open Food Facts, and how many distinct products contain them. An additive appearing in several products counts once. Missing additive data stays unknown. This is a count, not a health-risk assessment.",
+        "nutrients": "Per-100 g or per-100 ml values × the purchased mass or volume ÷ 100. Only products with both a known value and amount are included. Fresh-produce averages come from CIQUAL 2020; less-than values and missing values are excluded rather than turned into exact numbers.",
+        "carbon": "AGRIBALYSE kg CO₂e per kg × purchased weight in kg. The estimate covers the food lifecycle and is not a measurement of your individual purchase. Products missing weight or reference data are excluded. Drinks need a known mass; volume is not assumed to equal mass.",
+        "labels": "Products with organic or fair-trade labels reported by Open Food Facts. Coverage counts products with label data. An absent label does not prove a product is uncertified.",
+        "spending": "Unit price × quantity bought, summed across receipt lines. Missing prices are excluded. Receipt extraction must supply a unit price, not a line total.",
+        "highNutrients": "Uses Open Food Facts’ published high nutrient levels based on 100 g / 100 ml, not basket totals. Missing levels are excluded. These describe food composition, not a personal medical recommendation.",
+        "allergens": "Contains uses declared allergen tags; May contain uses trace tags. Not listed requires ingredient data plus allergen and trace fields. Missing data stays Unknown. No gluten listed is not proof of suitability for coeliac disease: check packaging and gluten-free labels. We only show certification when a specific certification source is supplied.",
+        "highlights": "Nutri-Score D/E, NOVA 4 and Green-Score D/E/F are highlighted. Optional high sugar, salt and fat checks use published Open Food Facts nutrient levels. Each product appears once with all reasons. Missing data cannot clear a product."
+      },
+      "additivesCount": "{n} additive | {n} additives",
+      "glutenFreeLabel": "Labelled gluten-free"
     }
   },
   "auth": {

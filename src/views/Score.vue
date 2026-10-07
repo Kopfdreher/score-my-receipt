@@ -6,409 +6,229 @@
       </p>
       <UserSessionBar />
     </header>
-
     <div class="score__content">
-      <h1 class="score__title">
-        {{ $t('score.title') }}
-      </h1>
-
-      <v-alert
-        v-if="isMock"
-        class="score__alert"
-        type="info"
-        variant="tonal"
-        density="compact"
-      >
+      <div class="score__heading">
+        <div>
+          <p class="score__eyebrow">
+            {{ $t('score.ui.eyebrow') }}
+          </p>
+          <h1>{{ $t('score.ui.title') }}</h1>
+        </div>
+        <InfoTip :title="$t('score.ui.title')" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
+      </div>
+      <v-alert v-if="isMock" class="score__alert" type="info" variant="tonal" density="compact">
         {{ $t('score.mockBanner') }}
       </v-alert>
-
-      <div
-        v-if="isLoading"
-        class="score__state"
-      >
-        <v-progress-circular
-          indeterminate
-          color="secondary"
-        />
-        <p>{{ $t('score.loading') }}</p>
+      <div v-if="isLoading" class="score__state">
+        <v-progress-circular indeterminate /><p>{{ $t('score.loading') }}</p>
       </div>
-
-      <v-alert
-        v-else-if="hasError"
-        class="score__alert"
-        type="error"
-        variant="tonal"
-        :title="$t('score.errorTitle')"
-        :text="receipt.errorMessage || ''"
-      />
-
-      <div
-        v-else-if="!items.length"
-        class="score__state"
-      >
-        <p class="score__state-title">
-          {{ $t('score.empty') }}
+      <v-alert v-else-if="receipt.status === 'error'" type="error" :title="$t('score.errorTitle')" :text="receipt.errorMessage || ''" />
+      <template v-else-if="items.length">
+        <div class="score__basket-meta">
+          <span>{{ $t('score.ui.productsCount', products.length) }}</span>
+          <details class="score__weight-detail">
+            <summary>{{ $t('score.ui.weight', { weight: formatGrams(weight.grams) }) }} · {{ coverage(weight.known) }}</summary>
+            <AnalysisProductList :products="weight.items">
+              <template #default="{ product }">
+                <span class="score__coverage">{{ formatGrams(product.grams) }}</span>
+              </template>
+            </AnalysisProductList>
+          </details>
+          <InfoTip :title="$t('score.ui.shoppingWeight')" :text="$t('score.ui.weightInfo', { known: weight.known, total: products.length })" />
+        </div>
+        <p v-if="detailsStatus === 'loading'" class="score__status">
+          <v-progress-circular indeterminate size="14" width="2" />{{ $t('score.detailsLoading') }}
         </p>
-        <p>{{ $t('score.emptyHint') }}</p>
-        <v-btn
-          color="primary"
-          prepend-icon="mdi-line-scan"
-          @click="scanAnother"
-        >
-          {{ $t('score.scanCta') }}
-        </v-btn>
-      </div>
+        <p v-else-if="detailsStatus === 'partial'" class="score__status">
+          {{ $t('score.detailsPartial') }} <button type="button" @click="loadDetails">
+            {{ $t('score.retry') }}
+          </button>
+        </p>
 
-      <template v-else>
-        <!-- Top summary -->
-        <section class="score__card score__global">
-          <ScoreBadge
-            kind="global"
-            :value="score.global.letter"
-            size="large"
-          />
-          <div class="score__global-text">
-            <p class="score__global-label">
-              {{ $t('score.globalTitle') }}
-            </p>
-            <p
-              v-if="score.global.value !== null"
-              class="score__global-value"
-            >
-              {{ Math.round(score.global.value) }}<span>{{ $t('score.outOf') }}</span>
-            </p>
-            <p
-              v-else
-              class="score__global-value score__global-value--empty"
-            >
-              {{ $t('score.notEnoughData') }}
-            </p>
-            <p class="score__message">
-              {{ $t(`score.message.${score.global.letter || 'none'}`) }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.coverage', { scored: score.scoredCount, total: score.itemCount }) }}
-              · {{ $t('score.globalInfo') }}
-            </p>
+        <div class="score__pillars">
+          <section class="score__pillar">
+            <h2><v-icon icon="mdi-heart-outline" size="22" />{{ $t('score.ui.health') }}</h2>
+            <CategoryChart kind="nutriscore" :title="$t('score.nutriscore')" :info="$t('score.ui.info.nutriscore')" :chart="charts.nutriscore" :sources="offSources" />
+            <CategoryChart kind="nova" :title="$t('score.ui.processing')" :info="$t('score.ui.info.nova')" :chart="charts.nova" :sources="novaSources" />
+            <section class="score__card">
+              <div class="score__card-heading">
+                <h3>{{ $t('score.additivesTitle') }}</h3><InfoTip :title="$t('score.additivesTitle')" :text="$t('score.ui.info.additives')" :sources="offSources" />
+              </div>
+              <p class="score__stat">
+                {{ additives.known ? $t('score.ui.additives', { additives: $t('score.ui.additivesCount', additives.list.length), products: $t('score.ui.productsCount', additives.products) }) : $t('score.noData') }}
+              </p>
+              <p class="score__coverage">
+                {{ coverage(additives.known) }}
+              </p>
+              <p class="score__coverage">
+                {{ $t('score.ui.additiveMissing', { without: additives.without, unknown: additives.unknown }) }}
+              </p>
+              <details v-if="additives.list.length">
+                <summary>{{ $t('score.ui.viewAdditives') }}</summary>
+                <details v-for="additive in additives.list" :key="additive.tag" class="score__nested">
+                  <summary>{{ additiveName(additive.tag) }} <span class="score__muted">· {{ $t('score.ui.productsCount', additive.items.length) }}</span></summary>
+                  <AnalysisProductList :products="additive.items" />
+                </details>
+              </details>
+            </section>
+            <details class="score__card">
+              <summary>{{ $t('score.ui.nutritionDetails') }}</summary>
+              <div class="score__card-heading score__spaced">
+                <span class="score__muted">{{ $t('score.ui.wholeBasket') }}</span><InfoTip :title="$t('score.ui.nutritionDetails')" :text="$t('score.ui.info.nutrients')" :sources="referenceSources" />
+              </div>
+              <details v-for="(nutrient, key) in nutrients" :key="key" class="score__nested">
+                <summary class="score__metric-summary">
+                  <span>{{ $t(`score.nutrients.${key}`) }}</span><strong>{{ formatGrams(nutrient.grams) }}</strong>
+                </summary>
+                <p class="score__coverage">
+                  {{ coverage(nutrient.known) }}
+                </p>
+                <AnalysisProductList :products="nutrient.items" />
+              </details>
+            </details>
+          </section>
+          <section class="score__pillar">
+            <h2><v-icon icon="mdi-leaf" size="22" />{{ $t('score.ui.environment') }}</h2>
+            <CategoryChart kind="greenScore" :title="$t('score.greenScore')" :info="$t('score.ui.info.greenScore')" :chart="charts.greenScore" :sources="greenSources" />
+            <section class="score__card">
+              <div class="score__card-heading">
+                <h3>{{ $t('score.co2Title') }}</h3><InfoTip :title="$t('score.co2Title')" :text="$t('score.ui.info.carbon')" :sources="referenceSources" />
+              </div>
+              <p class="score__stat">
+                {{ carbon.kg === null ? $t('score.noData') : $t('score.co2Value', { kg: formatNumber(carbon.kg, 2) }) }}
+              </p>
+              <span class="score__estimate">{{ $t('score.ui.estimated') }}</span>
+              <p class="score__coverage">
+                {{ coverage(carbon.known) }}
+              </p>
+              <details v-if="carbon.items.length">
+                <summary>{{ $t('score.ui.contributingProducts') }}</summary>
+                <AnalysisProductList :products="carbon.items">
+                  <template #default="{ product }">
+                    <span class="score__coverage">{{ $t('score.co2Value', { kg: formatNumber(product.co2Kg, 2) }) }}</span>
+                  </template>
+                </AnalysisProductList>
+              </details>
+            </section>
+            <CategoryChart kind="forest" :title="$t('score.ui.forest')" :info="$t('score.ui.info.forest')" :chart="charts.forest" :sources="forestSources" />
+          </section>
+        </div>
+
+        <details class="score__card score__section">
+          <summary>{{ $t('score.ui.labels') }}</summary>
+          <div class="score__card-heading score__spaced">
+            <span class="score__muted">{{ coverage(labelsKnown) }}</span><InfoTip :title="$t('score.ui.labels')" :text="$t('score.ui.info.labels')" :sources="offSources" />
           </div>
+          <details v-for="label in labelGroups" :key="label.key" class="score__nested">
+            <summary>{{ $t(`score.${label.key}`) }} · {{ $t('score.ui.productsCount', label.items.length) }}</summary>
+            <AnalysisProductList :products="label.items" />
+          </details>
+        </details>
+        <details class="score__card score__section">
+          <summary>{{ $t('score.sections.spending') }}</summary>
+          <div class="score__card-heading score__spaced">
+            <p class="score__stat">
+              {{ pricedProducts.length ? formatMoney(totalSpent) : $t('score.noData') }}
+            </p><InfoTip :title="$t('score.sections.spending')" :text="$t('score.ui.info.spending')" />
+          </div>
+          <p class="score__coverage">
+            {{ coverage(pricedProducts.length) }}
+          </p>
+          <AnalysisProductList :products="pricedProducts">
+            <template #default="{ product }">
+              <span class="score__coverage">{{ formatMoney(product.lineTotal) }}</span>
+            </template>
+          </AnalysisProductList>
+        </details>
+
+        <section class="score__section">
+          <h2>{{ $t('score.ui.closerLook') }}</h2>
+          <details class="score__card score__filters">
+            <summary>{{ $t('score.ui.personalise') }}</summary>
+            <p class="score__coverage">
+              {{ $t('score.ui.remembered') }}
+            </p>
+            <h3 class="score__spaced">
+              {{ $t('score.ui.allergenCheck') }}
+            </h3>
+            <div class="score__choices">
+              <label v-for="allergen in allergenKeys" :key="allergen"><input v-model="selectedAllergens" type="checkbox" :value="allergen">{{ $t(`score.ui.allergens.${allergen}`) }}</label>
+            </div>
+            <div class="score__card-heading score__spaced">
+              <h3>{{ $t('score.ui.nutrientFilters') }}</h3><InfoTip :title="$t('score.ui.nutrientFilters')" :text="$t('score.ui.info.highNutrients')" :sources="nutrientSources" />
+            </div>
+            <div class="score__choices">
+              <label v-for="key in ['sugars', 'salt', 'fat']" :key="key"><input v-model="selectedNutrients" type="checkbox" :value="key">{{ $t(`score.ui.high.${key}`) }}</label>
+            </div>
+            <p v-for="key in selectedNutrients" :key="key" class="score__coverage">
+              {{ $t(`score.ui.high.${key}`) }} · {{ coverage(products.filter(p => ['low', 'moderate', 'high'].includes(p.nutrientLevels[key])).length) }}
+            </p>
+          </details>
+
+          <!-- Allergen results come first in the product results list. -->
+          <section v-if="selectedAllergens.length" class="score__card score__section">
+            <div class="score__card-heading">
+              <h3>{{ $t('score.ui.allergenResults') }}</h3><InfoTip :title="$t('score.ui.allergenResults')" :text="$t('score.ui.info.allergens')" :sources="offSources" />
+            </div>
+            <details v-for="allergen in selectedAllergens" :key="allergen" class="score__nested" open>
+              <summary>{{ $t(`score.ui.allergens.${allergen}`) }}</summary>
+              <details v-for="(group, key) in allergenResults[allergen]" :key="key" class="score__nested">
+                <summary>{{ $t(`score.ui.allergenStatus.${key}`) }} · {{ $t('score.ui.productsCount', group.length) }}</summary>
+                <AnalysisProductList :products="group">
+                  <template #default="{ product }">
+                    <span v-if="allergen === 'gluten' && product.labels?.includes('en:gluten-free')" class="score__estimate">{{ $t('score.ui.glutenFreeLabel') }}</span>
+                  </template>
+                </AnalysisProductList>
+              </details>
+              <p v-if="allergen === 'gluten'" class="score__coverage">
+                {{ $t('score.ui.glutenFreeLabels', { count: glutenFreeNotListed }) }}
+              </p>
+            </details>
+          </section>
+
+          <section class="score__card score__section">
+            <div class="score__card-heading">
+              <h3>{{ $t('score.ui.highlights') }}</h3><InfoTip :title="$t('score.ui.highlights')" :text="highlightInfo" :sources="offSources" />
+            </div>
+            <p class="score__coverage">
+              {{ $t('score.ui.highlightCount', { count: improvements.length, total: products.length }) }} · {{ coverage(highlightKnown) }}
+            </p>
+            <p v-if="!improvements.length" class="score__muted">
+              {{ $t('score.ui.noHighlights') }}
+            </p>
+            <AnalysisProductList :products="improvements">
+              <template #default="{ product }">
+                <div class="score__reasons">
+                  <span v-for="reason in product.reasons" :key="reason" class="score__reason">{{ reasonLabel(reason) }}</span>
+                </div>
+              </template>
+            </AnalysisProductList>
+          </section>
         </section>
 
-        <!-- Fixed space for the loading state, so the charts below never move -->
-        <div class="score__details-slot">
-          <p
-            v-if="detailsStatus === 'loading'"
-            class="score__muted score__details-status"
-          >
-            <v-progress-circular
-              indeterminate
-              size="14"
-              width="2"
-            />
-            {{ $t('score.detailsLoading') }}
-          </p>
-          <p
-            v-else-if="detailsStatus === 'partial'"
-            class="score__muted score__details-status"
-          >
-            {{ $t('score.detailsPartial') }}
-            <v-btn
-              size="small"
-              variant="text"
-              prepend-icon="mdi-refresh"
-              @click="retryDetails"
-            >
-              {{ $t('score.retry') }}
-            </v-btn>
-          </p>
-        </div>
-
-        <!-- Units / money toggle -->
-        <div class="score__toolbar">
-          <span class="score__muted">{{ $t('score.showBy') }}</span>
-          <v-btn-toggle
-            v-model="mode"
-            mandatory
-            density="compact"
-            variant="outlined"
-          >
-            <v-btn value="units">
-              {{ $t('score.byItems') }}
-            </v-btn>
-            <v-btn value="spend">
-              {{ $t('score.bySpend') }}
-            </v-btn>
-          </v-btn-toggle>
-        </div>
-
-        <!-- Nutrition -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.nutrition') }}
-        </h2>
-        <div class="score__grid">
-          <CategoryChart
-            kind="nutriscore"
-            :title="$t('score.nutriscore')"
-            :info="$t('score.nutriscoreInfo')"
-            :chart="score.categories.nutriscore"
-            :mode="mode"
-            :currency="score.currency"
-          />
-          <section class="score__card">
-            <h3 class="score__card-title">
-              {{ $t('score.nutrientsTitle') }}
-            </h3>
-            <ul class="score__rows">
-              <li
-                v-for="key in nutrientKeys"
-                :key="key"
-              >
-                <span>{{ $t(`score.nutrients.${key}`) }}</span>
-                <span class="score__row-value">{{ formatGrams(details.nutrients[key].grams) }}</span>
-              </li>
-            </ul>
-            <p class="score__muted score__card-foot">
-              {{ $t('score.knownOn', { known: details.nutrients.sugars.knownItems, total: details.itemCount }) }}
-            </p>
-          </section>
-        </div>
-
-        <!-- Processing / ingredients -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.processing') }}
-        </h2>
-        <div class="score__grid">
-          <CategoryChart
-            kind="nova"
-            :title="$t('score.nova')"
-            :info="$t('score.novaInfo')"
-            :chart="score.categories.nova"
-            :mode="mode"
-            :currency="score.currency"
-          />
-          <AdditivesCard :additives="details.additives">
-            <p class="score__muted score__card-foot">
-              {{ $t('score.ultraProcessedLine', { share: formatPercent(score.ultraProcessedShare) }) }}
-              · {{ $t('score.knownOn', { known: details.knownItems, total: details.itemCount }) }}
-            </p>
-          </AdditivesCard>
-        </div>
-
-        <!-- Environment -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.environment') }}
-        </h2>
-        <div class="score__grid">
-          <CategoryChart
-            kind="greenScore"
-            :title="$t('score.greenScore')"
-            :info="$t('score.greenScoreInfo')"
-            :chart="score.categories.greenScore"
-            :mode="mode"
-            :currency="score.currency"
-          />
-          <section class="score__card">
-            <h3 class="score__card-title">
-              {{ $t('score.co2Title') }}
-            </h3>
-            <p class="score__stat">
-              {{ details.co2.kg === null ? $t('score.noData') : $t('score.co2Value', { kg: formatNumber(details.co2.kg, 2) }) }}
-            </p>
-            <ul
-              v-if="co2Parts.length"
-              class="score__bars"
-            >
-              <li
-                v-for="part in co2Parts"
-                :key="part.key"
-              >
-                <span class="score__bar-label">{{ $t(`score.co2Parts.${part.key}`) }}</span>
-                <span class="score__bar"><span :style="{ width: `${part.share * 100}%` }" /></span>
-                <span class="score__bar-value">{{ formatNumber(part.kg, 2) }}</span>
-              </li>
-            </ul>
-            <p class="score__muted score__card-foot">
-              {{ $t('score.knownOn', { known: details.co2.knownItems, total: details.itemCount }) }}
-            </p>
-          </section>
-          <section class="score__card">
-            <h3 class="score__card-title">
-              {{ $t('score.forestTitle') }}
-            </h3>
-            <p class="score__stat">
-              {{ details.forest.squareMeters === null ? $t('score.noData') : $t('score.forestValue', { m2: formatNumber(details.forest.squareMeters, 2) }) }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.forestRisk', details.forest.riskItems) }}
-            </p>
-            <p class="score__muted score__card-foot">
-              {{ $t('score.forestInfo') }}
-            </p>
-          </section>
-        </div>
-
-        <!-- Labels / sourcing -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.labels') }}
-        </h2>
-        <div class="score__stats">
-          <div class="score__card">
-            <p class="score__muted">
-              {{ $t('score.organic') }}
-            </p>
-            <p class="score__stat">
-              {{ formatPercent(details.organic.share) }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.labelCount', { count: details.organic.items, total: details.knownItems }) }}
-            </p>
-          </div>
-          <div class="score__card">
-            <p class="score__muted">
-              {{ $t('score.fairTrade') }}
-            </p>
-            <p class="score__stat">
-              {{ formatPercent(details.fairTrade.share) }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.labelCount', { count: details.fairTrade.items, total: details.knownItems }) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Spending -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.spending') }}
-        </h2>
-        <div class="score__stats">
-          <div class="score__card">
-            <p class="score__muted">
-              {{ $t('score.totalSpent') }}
-            </p>
-            <p class="score__stat">
-              {{ formatMoney(score.totalSpend) }}
-            </p>
-            <p
-              v-if="score.unpricedCount"
-              class="score__muted"
-            >
-              {{ $t('score.unpriced', score.unpricedCount) }}
-            </p>
-          </div>
-          <div class="score__card">
-            <p class="score__muted">
-              {{ $t('score.ultraProcessed') }}
-            </p>
-            <p class="score__stat">
-              {{ formatPercent(score.ultraProcessedShare) }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.ultraProcessedHint') }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Best / worst -->
-        <div
-          v-if="score.best.length"
-          class="score__grid"
-        >
-          <section class="score__card">
-            <h2 class="score__list-title">
-              {{ $t('score.best') }}
-            </h2>
-            <ul class="score__list">
-              <li
-                v-for="item in score.best"
-                :key="item.id"
-              >
-                <span>{{ item.name }}</span>
-                <ScoreBadge
-                  kind="global"
-                  :value="letterOf(item.score)"
-                />
-              </li>
-            </ul>
-          </section>
-          <section
-            v-if="score.worst.length"
-            class="score__card"
-          >
-            <h2 class="score__list-title">
-              {{ $t('score.worst') }}
-            </h2>
-            <ul class="score__list">
-              <li
-                v-for="item in score.worst"
-                :key="item.id"
-              >
-                <span>{{ item.name }}</span>
-                <ScoreBadge
-                  kind="global"
-                  :value="letterOf(item.score)"
-                />
-              </li>
-            </ul>
-          </section>
-        </div>
-
-        <!-- Items -->
-        <h2 class="score__section-title">
-          {{ $t('score.sections.items') }}
-        </h2>
-        <p class="score__muted score__items-legend">
-          {{ $t('score.itemsLegend') }}
-        </p>
-        <ul class="score__items">
-          <li
-            v-for="item in cleanedItems"
-            :key="item.id"
-            class="score__item"
-          >
-            <div class="score__item-main">
-              <span class="score__item-name">{{ item.name }}</span>
-              <span class="score__item-price">
-                {{ item.lineTotal === null ? $t('score.noPrice') : formatMoney(item.lineTotal) }}
-              </span>
-            </div>
-            <div class="score__item-meta">
-              <span
-                v-if="item.quantity > 1 && item.unitPrice !== null"
-                class="score__muted"
-              >
-                {{ $t('score.itemQuantity', { quantity: item.quantity, price: formatMoney(item.unitPrice) }) }}
-              </span>
-              <span class="score__item-badges">
-                <ScoreBadge
-                  kind="nutriscore"
-                  :value="item.nutriscore"
-                />
-                <ScoreBadge
-                  kind="nova"
-                  :value="item.nova"
-                />
-                <ScoreBadge
-                  kind="greenScore"
-                  :value="item.greenScore"
-                />
-              </span>
-            </div>
-          </li>
-        </ul>
+        <details class="score__card score__section">
+          <summary>{{ $t('score.ui.allProducts', { count: products.length }) }}</summary>
+          <AnalysisProductList :products="products">
+            <template #default="{ product }">
+              <div class="score__product-meta">
+                <span>{{ $t('score.ui.purchased', { quantity: product.quantity }) }}</span>
+                <span v-if="product.grams !== null">{{ formatGrams(product.grams) }}</span>
+                <span v-if="product.lineTotal !== null">{{ formatMoney(product.lineTotal) }}</span>
+              </div>
+              <div class="score__reasons">
+                <span v-for="kind in ['nutriscore', 'nova', 'greenScore', 'forest']" :key="kind" class="score__product-grade">{{ $t(kind === 'forest' ? 'score.ui.forest' : `score.${kind}`) }} <strong>{{ product[kind] === null ? '?' : product[kind] === 'a-plus' ? 'A+' : product[kind].toUpperCase() }}</strong></span>
+              </div>
+            </template>
+          </AnalysisProductList>
+        </details>
       </template>
-
+      <p v-else>
+        {{ $t('score.empty') }}
+      </p>
       <div class="score__actions">
-        <v-btn
-          variant="outlined"
-          prepend-icon="mdi-arrow-left"
-          @click="goBack"
-        >
+        <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="$router.push({ name: 'review' })">
           {{ $t('score.back') }}
-        </v-btn>
-        <v-btn
-          color="primary"
-          prepend-icon="mdi-line-scan"
-          @click="scanAnother"
-        >
+        </v-btn><v-btn color="primary" prepend-icon="mdi-line-scan" @click="$router.push({ name: 'upload' })">
           {{ $t('score.scanAnother') }}
         </v-btn>
       </div>
@@ -420,448 +240,155 @@
 import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
-import { cleanItems, computeBasketDetails, computeScore } from '@/utils/score'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
-import ScoreBadge from '@/components/ScoreBadge.vue'
+import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons } from '@/utils/basketAnalysis'
+import ADDITIVES from '@/utils/additives.json'
 import CategoryChart from '@/components/CategoryChart.vue'
-import AdditivesCard from '@/components/AdditivesCard.vue'
+import InfoTip from '@/components/InfoTip.vue'
+import AnalysisProductList from '@/components/AnalysisProductList.vue'
 
-// Same thresholds as the global mark in utils/score.js
-const LETTER_THRESHOLDS = [[80, 'a'], [60, 'b'], [40, 'c'], [20, 'd'], [0, 'e']]
-
+const PREFS_KEY = 'score-my-receipt:analysis-preferences:v1'
+function preferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')
+    return {
+      allergens: Array.isArray(saved.allergens) ? saved.allergens.filter(a => ALLERGENS.includes(a)) : [],
+      nutrients: Array.isArray(saved.nutrients) ? saved.nutrients.filter(n => ['sugars', 'salt', 'fat'].includes(n)) : []
+    }
+  } catch { return { allergens: [], nutrients: [] } }
+}
 export default {
   name: 'Score',
-  components: {
-    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')),
-    ScoreBadge,
-    CategoryChart,
-    AdditivesCard
-  },
+  components: { UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')), CategoryChart, InfoTip, AnalysisProductList },
   data() {
+    const prefs = preferences()
     return {
-      mode: 'units',
-      nutrientKeys: ['sugars', 'salt', 'fat', 'saturatedFat'],
-      // Open Food Facts details, kept in this page only: { [barcode]: product | null }
-      products: {},
-      detailsStatus: 'idle'
+      fetched: {}, detailsStatus: 'idle', requestId: 0,
+      selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
+      allergenKeys: ALLERGENS, referenceSources: REFERENCE_SOURCES,
+      offSources: [{ label: 'Open Food Facts', url: 'https://world.openfoodfacts.org/data' }],
+      novaSources: [{ label: 'Open Food Facts · NOVA', url: 'https://world.openfoodfacts.org/nova' }],
+      greenSources: [{ label: 'Open Food Facts · Green-Score', url: 'https://world.openfoodfacts.org/green-score' }],
+      forestSources: [{ label: 'Open Food Facts · Forest footprint', url: 'https://openfoodfacts.github.io/openfoodfacts-server/dev/ref-perl-pod/ProductOpener/ForestFootprint2026.html' }],
+      nutrientSources: [{ label: 'Open Food Facts · Nutrient levels', url: 'https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/explain-product-attributes/' }]
     }
   },
   computed: {
     ...mapStores(useAppStore),
-    receipt() {
-      return this.appStore.getReceipt
+    receipt() { return this.appStore.getReceipt },
+    items() { return this.appStore.getItems },
+    isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
+    isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
+    barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
+    products() { return analyseProducts(this.items, this.fetched) },
+    charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore', 'forest'].map(kind => [kind, distribution(this.products, kind)])) },
+    nutrients() { return Object.fromEntries(Object.keys(NUTRIENTS).map(key => [key, nutrientTotal(this.products, key)])) },
+    weight() {
+      const known = this.products.filter(p => p.grams !== null)
+      return { items: known, known: known.length, grams: known.length ? known.reduce((sum, p) => sum + p.grams, 0) : null }
     },
-    items() {
-      return this.appStore.getItems
+    carbon() { return carbonTotal(this.products) },
+    additives() { return additiveSummary(this.products) },
+    labelsKnown() { return this.products.filter(p => p.labels !== null).length },
+    labelGroups() {
+      return [
+        { key: 'organic', items: this.products.filter(p => p.labels?.some(l => l === 'en:organic' || l.startsWith('en:eu-organic'))) },
+        { key: 'fairTrade', items: this.products.filter(p => p.labels?.some(l => l.includes('fair-trade'))) }
+      ]
     },
-    score() {
-      return computeScore(this.items, this.receipt.currency || 'EUR')
-    },
-    cleanedItems() {
-      return cleanItems(this.items)
-    },
-    isMock() {
-      return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock')
-    },
-    isLoading() {
-      return ['uploading', 'extracting'].includes(this.receipt.status)
-    },
-    hasError() {
-      return this.receipt.status === 'error'
-    },
-    barcodes() {
-      return [...new Set(this.items.map((item) => item.barcode).filter(Boolean))]
-    },
-    details() {
-      return computeBasketDetails(this.items, this.products)
-    },
-    co2Parts() {
-      const total = this.details.co2.kg
-      if (!total) return []
-      return Object.entries(this.details.co2.breakdown)
-        .filter(([, kg]) => kg > 0)
-        .map(([key, kg]) => ({ key, kg, share: kg / total }))
-        .sort((a, b) => b.kg - a.kg)
-    }
+    pricedProducts() { return this.products.filter(p => p.lineTotal !== null) },
+    totalSpent() { return this.pricedProducts.reduce((sum, p) => sum + p.lineTotal, 0) },
+    improvements() { return this.products.map(p => ({ ...p, reasons: improvementReasons(p, this.selectedNutrients) })).filter(p => p.reasons.length) },
+    highlightKnown() { return this.products.filter(p => p.nutriscore !== null || p.nova !== null || p.greenScore !== null || this.selectedNutrients.some(key => ['low', 'moderate', 'high'].includes(p.nutrientLevels[key]))).length },
+    highlightInfo() { return this.$t('score.ui.info.highlights') + ' ' + ['nutriscore', 'nova', 'greenScore'].map(kind => `${this.$t(`score.${kind}`)}: ${this.coverage(this.charts[kind].known)}`).join('. ') },
+    allergenResults() { return Object.fromEntries(this.selectedAllergens.map(a => [a, allergenGroups(this.products, a)])) },
+    glutenFreeNotListed() { return (this.allergenResults.gluten?.notListed || []).filter(p => p.labels?.includes('en:gluten-free')).length }
   },
   watch: {
-    barcodes: {
-      handler: 'loadProductDetails',
-      immediate: true
-    }
+    barcodes: { handler: 'loadDetails', immediate: true },
+    selectedAllergens: { handler: 'savePreferences', deep: true },
+    selectedNutrients: { handler: 'savePreferences', deep: true }
   },
   mounted() {
-    this.ensureReceipt()
+    if (this.$route.query.mock === '1' || !this.items.length) this.appStore.loadMockReceipt()
   },
+  unmounted() { this.requestId += 1 },
   methods: {
-    ensureReceipt() {
-      const store = useAppStore()
-      if (this.$route.query.mock === '1' || store.getItems.length === 0) {
-        store.loadMockReceipt()
-      }
-    },
-    formatMoney(value) {
-      return new Intl.NumberFormat(this.$i18n.locale, {
-        style: 'currency',
-        currency: this.receipt.currency || 'EUR'
-      }).format(value)
-    },
-    // Fetch Open Food Facts details for barcodes we have not fetched yet
-    loadProductDetails(barcodes) {
-      const missing = barcodes.filter((code) => !(code in this.products))
-      if (!missing.length) return
+    loadDetails() {
+      const requestId = ++this.requestId
+      const missing = this.barcodes.filter(code => !(code in this.fetched))
+      if (!missing.length) { this.detailsStatus = 'done'; return }
       this.detailsStatus = 'loading'
-      let failed = 0
-      // One request after the other, to stay under the Open Food Facts rate limit
-      missing.reduce((chain, code) => chain
-        .then(() => openFoodFactsApi.getProductDetails(code))
-        .then((product) => { this.products = { ...this.products, [code]: product } })
-        .catch(() => { failed += 1 }),
-      Promise.resolve())
-        .then(() => { this.detailsStatus = failed ? 'partial' : 'done' })
+      let failed = false
+      missing.reduce((chain, code) => chain.then(() => {
+        if (requestId !== this.requestId) return
+        return openFoodFactsApi.getProductDetails(code).then(product => {
+          if (requestId === this.requestId) this.fetched = { ...this.fetched, [code]: product }
+        }).catch(() => { failed = true })
+      }), Promise.resolve()).then(() => {
+        if (requestId === this.requestId) this.detailsStatus = failed ? 'partial' : 'done'
+      })
     },
-    retryDetails() {
-      this.loadProductDetails(this.barcodes)
-    },
-    formatNumber(value, digits = 0) {
-      return new Intl.NumberFormat(this.$i18n.locale, { maximumFractionDigits: digits }).format(value)
-    },
-    formatGrams(grams) {
-      if (grams === null) return this.$t('score.noData')
-      return grams >= 1000
-        ? `${this.formatNumber(grams / 1000, 2)} kg`
-        : `${this.formatNumber(grams, 1)} g`
-    },
-    formatPercent(value) {
-      return new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 0 }).format(value)
-    },
-    letterOf(value) {
-      if (value === null || value === undefined) return null
-      return LETTER_THRESHOLDS.find(([min]) => value >= min)[1]
-    },
-    goBack() {
-      this.$router.push({ name: 'review' })
-    },
-    scanAnother() {
-      this.$router.push({ name: 'upload' })
+    savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
+    coverage(known) { return this.$t('score.ui.coverage', { known, total: this.products.length }) },
+    formatNumber(value, digits = 0) { return new Intl.NumberFormat(this.$i18n.locale, { maximumFractionDigits: digits }).format(value) },
+    formatMoney(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: this.receipt.currency || 'EUR' }).format(value) },
+    formatGrams(value) { return value === null ? this.$t('score.noData') : value >= 1000 ? `${this.formatNumber(value / 1000, 2)} kg` : `${this.formatNumber(value, 1)} g` },
+    additiveName(tag) { return ADDITIVES[tag]?.name || tag.replace(/^en:/, '').toUpperCase() },
+    reasonLabel(reason) {
+      const [kind, value] = reason.split(':')
+      return kind === 'high' ? this.$t(`score.ui.high.${value}`) : `${this.$t(`score.${kind}`)} ${value}`
     }
   }
 }
 </script>
 
 <style scoped>
-.score {
-  min-height: 100dvh;
-  padding: 1.5rem;
-  color: var(--smr-cream, #F7FBF4);
-  background:
-    radial-gradient(90% 70% at 80% 0%, rgba(31, 107, 74, 0.35), transparent 55%),
-    linear-gradient(160deg, #16382A 0%, #0E241C 100%);
-}
-
-.score__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.score__brand {
-  margin: 0;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: 1.35rem;
-  font-weight: 700;
-}
-
-.score__content {
-  width: min(64rem, 100%);
-  margin: 0 auto;
-}
-
-.score__title {
-  margin: 0 0 1.25rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(1.75rem, 5vw, 2.5rem);
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.score__alert {
-  margin-bottom: 1.25rem;
-}
-
-.score__state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  text-align: center;
-}
-
-.score__state p {
-  margin: 0;
-}
-
-.score__state-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.score__card {
-  padding: 1.25rem;
-  border: 1px solid rgba(247, 251, 244, 0.12);
-  border-radius: 1rem;
-  background: rgba(14, 36, 28, 0.55);
-}
-
-.score__card p {
-  margin: 0;
-}
-
-.score__global {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-}
-
-.score__global-label {
-  font-weight: 600;
-}
-
-.score__global-value {
-  font-family: var(--font-display, Georgia, serif);
-  font-size: 2.5rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.score__global-value span {
-  margin-left: 0.25rem;
-  font-size: 1rem;
-  color: rgba(247, 251, 244, 0.6);
-}
-
-.score__global-value--empty {
-  font-size: 1.1rem;
-}
-
-.score__muted {
-  color: rgba(247, 251, 244, 0.65);
-  font-size: 0.85rem;
-}
-
-.score__message {
-  margin-top: 0.25rem !important;
-  font-weight: 500;
-}
-
-.score__details-slot {
-  min-height: 2.5rem;
-  margin-top: 0.75rem;
-}
-
-.score__details-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-}
-
-.score__card-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.score__card-foot {
-  margin-top: 0.75rem !important;
-}
-
-.score__rows,
-.score__bars {
-  margin: 0.5rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.score__rows li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(247, 251, 244, 0.08);
-}
-
-.score__row-value {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-
-
-
-
-.score__bars li {
-  display: grid;
-  grid-template-columns: 6.5rem 1fr 2.75rem;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.2rem 0;
-  font-size: 0.85rem;
-}
-
-.score__bar {
-  height: 0.5rem;
-  border-radius: 0.25rem;
-  background: rgba(247, 251, 244, 0.1);
-  overflow: hidden;
-}
-
-.score__bar span {
-  display: block;
-  height: 100%;
-  background: #85bb2f;
-}
-
-.score__bar-value {
-  text-align: right;
-  color: rgba(247, 251, 244, 0.75);
-}
-
-.score__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin: 1.25rem 0 0;
-}
-
-.score__toolbar :deep(.v-btn) {
-  color: var(--smr-cream, #F7FBF4);
-}
-
-.score__toolbar :deep(.v-btn--active) {
-  color: var(--smr-ink, #0E241C);
-  background: var(--smr-mist, #E8F2E6);
-}
-
-.score__section-title {
-  margin: 1.75rem 0 0.75rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: 1.35rem;
-  font-weight: 700;
-}
-
-.score__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: 1rem;
-}
-
-.score__grid + .score__grid {
-  margin-top: 1rem;
-}
-
-.score__stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.score__stat {
-  font-family: var(--font-display, Georgia, serif);
-  font-size: 1.75rem;
-  font-weight: 700;
-}
-
-.score__list-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.score__list,
-.score__items {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.score__list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.35rem 0;
-}
-
-.score__items-legend {
-  margin: 0 0 0.5rem;
-}
-
-.score__item {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid rgba(247, 251, 244, 0.1);
-}
-
-.score__item-main,
-.score__item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.score__item-name {
-  font-weight: 600;
-}
-
-.score__item-price {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.score__item-meta {
-  margin-top: 0.35rem;
-}
-
-.score__item-badges {
-  display: inline-flex;
-  gap: 0.35rem;
-  margin-left: auto;
-}
-
-.score__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 2rem;
-}
-
-@media (max-width: 600px) {
-  .score {
-    padding: 1rem;
-  }
-
-  .score__global-value {
-    font-size: 2rem;
-  }
-
-  .score__stat {
-    font-size: 1.35rem;
-  }
-
-  .score__toolbar {
-    justify-content: flex-start;
-  }
-}
+.score { min-height: 100dvh; padding: 1.5rem; color: #f7fbf4; background: radial-gradient(90% 70% at 80% 0%, #1f6b4a59, transparent 55%), linear-gradient(160deg, #16382a, #0e241c); }
+.score__content { width: min(68rem, 100%); margin: auto; }
+.score__header, .score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.score__header { flex-wrap: wrap; margin-bottom: 2rem; }
+.score__brand { font: 700 1.35rem var(--font-display, Georgia, serif); }
+h1, h2 { font-family: var(--font-display, Georgia, serif); }
+h1 { font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0.3rem 0 1rem; line-height: 1.15; }
+h2 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.5rem; margin: 0 0 0.5rem; }
+h3 { font-size: 1rem; font-weight: 600; }
+.score__eyebrow { font-size: 0.7rem; color: #bdcebe; letter-spacing: 0.12em; text-transform: uppercase; }
+.score__alert { margin-bottom: 1rem; }
+.score__basket-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.25rem; margin: 0.5rem 0 1.5rem; color: #bdcebe; font-size: 0.85rem; }
+.score__weight-detail { font-size: 0.85rem; }
+.score__weight-detail[open] { flex-basis: 100%; }
+.score__pillars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.score__pillar { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.score__card { padding: 1.1rem; border: 1px solid #f7fbf41c; border-radius: 1rem; background: #0e241c60; }
+.score__card-heading { margin-bottom: 0.5rem; }
+.score__stat { font: 700 clamp(1.3rem, 3vw, 1.85rem) var(--font-display, Georgia, serif); margin: 0.5rem 0; }
+.score__coverage, .score__muted, .score__status, .score__product-meta { font-size: 0.8rem; color: #bdcebe; }
+.score__coverage { margin: 0.45rem 0; }
+.score__status { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem; }
+.score__status button { text-decoration: underline; }
+.score__estimate { font-size: 0.75rem; border: 1px solid #b9cdbd44; padding: 0.15rem 0.45rem; border-radius: 1rem; color: #bdcebe; }
+.score__section { margin-top: 1.25rem; }
+.score__section > h2 { margin-bottom: 0.85rem; }
+summary { cursor: pointer; font-weight: 600; }
+summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid #c9e88e; outline-offset: 3px; }
+.score__card > details { margin-top: 0.85rem; font-size: 0.85rem; }
+.score__nested { padding: 0.65rem 0; border-bottom: 1px solid #f7fbf414; }
+.score__nested:last-child { border-bottom: 0; }
+.score__metric-summary { display: flex; justify-content: space-between; gap: 0.5rem; }
+.score__metric-summary::before { content: '+'; color: #bdcebe; }
+.score__spaced { margin-top: 1rem; }
+.score__choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.score__choices label { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.65rem; font-size: 0.85rem; border: 1px solid #f7fbf426; border-radius: 1rem; cursor: pointer; }
+.score__choices label:has(input:checked) { background: #c9e88e20; border-color: #c9e88e; }
+input { accent-color: #92c76d; }
+.score__reasons { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.score__reason { background: #ee81002b; color: #ffe0b4; border: 1px solid #ee810052; border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+.score__product-grade { color: #bdcebe; font-size: 0.75rem; padding-right: 0.6rem; }
+.score__product-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
+.score__actions { flex-wrap: wrap; margin-top: 2rem; }
+.score__state { text-align: center; padding: 3rem; }
+@media (max-width: 760px) { .score { padding: 1rem; } .score__weight-detail { font-size: 0.85rem; }
+.score__weight-detail[open] { flex-basis: 100%; }
+.score__pillars { grid-template-columns: 1fr; gap: 1.5rem; } }
 </style>

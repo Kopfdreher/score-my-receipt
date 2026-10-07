@@ -104,3 +104,47 @@ Keep new work in the same places Open Prices already uses:
 Conventions to keep: Options API, `.then()` over `async`/`await`, `$t` for user-facing strings, Vuetify components, API logic in services.
 
 This repo is MIT-licensed. Files contributed to Open Prices will be relicensed **AGPL-3.0**.
+
+### Score analysis input and sources
+
+The Score screen reads the existing session list without changing Capture or Review.
+Each item keeps `id`, `name`, `price` (unit price), `quantity` (units bought),
+`barcode`, `categoryTag`, and `off`. For loose produce, supply **`weight` and
+`weightUnit` (`g`, `kg`, or `mg`) as the total purchased weight of that receipt
+line**. Weight is never read from `quantity`. `setReceiptFromCapture` already
+preserves extra fields; Pair B's `addItem` currently needs to preserve these
+fields when wiring its editor. Extraction and that editor remain separate work.
+
+Charts count distinct products, not quantities. Identical barcodes are merged;
+produce entries are merged only when their reference and analysis data match.
+Purchased quantities still contribute to nutrients, emissions and spending.
+A missing amount or value stays unknown. Drinks measured by volume contribute
+to nutrient totals, but not mass or carbon totals unless their mass is known.
+
+The bundled `src/data/produceReference.json` is a limited raw-produce snapshot
+from Open Food Facts' category mappings, ANSES CIQUAL 2020 and ADEME AGRIBALYSE
+3.2. Unknown categories remain unknown; matching by receipt name is not attempted.
+Grades are never fabricated. NOVA 1 for a matched raw food is a category-based
+classification, visibly marked Estimated. Censored nutrient values (`< ...`)
+are omitted rather than represented as exact values. Published means are per
+100 g of edible food; gross receipt weight may include inedible parts.
+
+Reference files (retrieved 2026-10-07) are in the
+[Open Food Facts upstream repository](https://github.com/openfoodfacts/openfoodfacts-server):
+
+- `taxonomies/food/categories.txt`
+- `external-data/ciqual/ciqual/CIQUAL2020_ENG_2020_07_07.csv`
+- `external-data/environmental_score/agribalyse/AGRIBALYSE_vf.csv.2`
+
+CIQUAL and simplified AGRIBALYSE impact data are published under the French
+Licence Ouverte; Open Food Facts taxonomy/data attribution follows its
+[reuse terms](https://world.openfoodfacts.org/terms-of-use).
+`scripts/build-produce-reference.py` regenerates the snapshot from those three
+files downloaded to `/tmp/categories.txt`, `/tmp/ciqual2020.csv`, and
+`/tmp/agribalyse-2.csv`. Generic bananas deliberately use the published raw-banana
+reference `13005`, rather than the taxonomy's plantain proxy.
+
+Run calculation checks with `node scripts/test-basket-analysis.mjs`.
+Optional allergen/nutrient selections are stored on this device separately from
+the receipt and user session. Missing allergen data is Unknown, not an assurance
+of safety; gluten-free labels are not presented as verified certifications.
