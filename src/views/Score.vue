@@ -30,7 +30,7 @@
             <summary>{{ $t('score.ui.weight', { weight: formatGrams(weight.grams) }) }} · {{ coverage(weight.known) }}</summary>
             <AnalysisProductList :products="weight.items">
               <template #default="{ product }">
-                <span class="score__coverage">{{ formatGrams(product.grams) }}</span>
+                <span class="score__coverage">{{ product.grams !== null ? formatGrams(product.grams) : $t('score.ui.liquidWeight', { volume: formatMl(product.ml) }) }}</span>
               </template>
             </AnalysisProductList>
           </details>
@@ -83,7 +83,14 @@
                 <p class="score__coverage">
                   {{ coverage(nutrient.known) }}
                 </p>
-                <AnalysisProductList :products="nutrient.items" />
+                <AnalysisProductList :products="nutrient.items">
+                  <template #default="{ product }">
+                    <div class="score__contribution">
+                      <span class="score__contribution-bar"><span :style="{ width: `${product.share * 100}%` }" /></span>
+                      <span class="score__coverage">{{ $t('score.ui.contribution', { grams: formatGrams(product.contribution), percent: formatPercent(product.share) }) }}</span>
+                    </div>
+                  </template>
+                </AnalysisProductList>
               </details>
             </details>
           </section>
@@ -208,11 +215,26 @@
 
         <details class="score__card score__section">
           <summary>{{ $t('score.ui.allProducts', { count: products.length }) }}</summary>
-          <AnalysisProductList :products="products">
+          <div class="score__sort">
+            <div class="score__sort-head">
+              <span id="score-sort-label" class="score__eyebrow">{{ $t('score.ui.sortBy') }}</span>
+              <button v-if="productSort !== 'receipt'" type="button" class="score__sort-order" :aria-label="$t('score.ui.reverseOrder')" @click="sortReverse = !sortReverse">
+                <v-icon icon="mdi-swap-vertical" size="16" />{{ $t(`score.ui.sortOrder.${productSort}.${sortReverse ? 'reversed' : 'normal'}`) }}
+              </button>
+            </div>
+            <div class="score__sort-options" role="radiogroup" aria-labelledby="score-sort-label">
+              <label v-for="option in sortOptions" :key="option.key" class="score__sort-option">
+                <input v-model="productSort" type="radio" name="score-sort" :value="option.key">
+                <v-icon :icon="option.icon" size="16" />{{ $t(`score.ui.sorts.${option.key}`) }}
+              </label>
+            </div>
+          </div>
+          <AnalysisProductList :products="sortedProducts">
             <template #default="{ product }">
               <div class="score__product-meta">
                 <span>{{ $t('score.ui.purchased', { quantity: product.quantity }) }}</span>
                 <span v-if="product.grams !== null">{{ formatGrams(product.grams) }}</span>
+                <span v-else-if="product.ml !== null">{{ formatMl(product.ml) }}</span>
                 <span v-if="product.lineTotal !== null">{{ formatMoney(product.lineTotal) }}</span>
               </div>
               <div class="score__reasons">
@@ -241,21 +263,35 @@ import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
-import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons } from '@/utils/basketAnalysis'
+import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
 import ADDITIVES from '@/utils/additives.json'
 import CategoryChart from '@/components/CategoryChart.vue'
 import InfoTip from '@/components/InfoTip.vue'
 import AnalysisProductList from '@/components/AnalysisProductList.vue'
 
+const SORT_OPTIONS = [
+  { key: 'receipt', icon: 'mdi-receipt-text-outline' },
+  { key: 'review', icon: 'mdi-alert-circle-outline' },
+  { key: 'nutriscore', icon: 'mdi-heart-outline' },
+  { key: 'nova', icon: 'mdi-factory' },
+  { key: 'greenScore', icon: 'mdi-leaf' },
+  { key: 'forest', icon: 'mdi-pine-tree' },
+  { key: 'co2', icon: 'mdi-molecule-co2' },
+  { key: 'price', icon: 'mdi-currency-eur' },
+  { key: 'weight', icon: 'mdi-weight' },
+  { key: 'name', icon: 'mdi-sort-alphabetical-ascending' }
+]
 const PREFS_KEY = 'score-my-receipt:analysis-preferences:v1'
 function preferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')
     return {
       allergens: Array.isArray(saved.allergens) ? saved.allergens.filter(a => ALLERGENS.includes(a)) : [],
-      nutrients: Array.isArray(saved.nutrients) ? saved.nutrients.filter(n => ['sugars', 'salt', 'fat'].includes(n)) : []
+      nutrients: Array.isArray(saved.nutrients) ? saved.nutrients.filter(n => ['sugars', 'salt', 'fat'].includes(n)) : [],
+      sort: saved.sort in SORTS ? saved.sort : 'receipt',
+      reverse: saved.reverse === true
     }
-  } catch { return { allergens: [], nutrients: [] } }
+  } catch { return { allergens: [], nutrients: [], sort: 'receipt', reverse: false } }
 }
 export default {
   name: 'Score',
@@ -265,6 +301,7 @@ export default {
     return {
       fetched: {}, detailsStatus: 'idle', requestId: 0,
       selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
+      productSort: prefs.sort, sortReverse: prefs.reverse, sortOptions: SORT_OPTIONS,
       allergenKeys: ALLERGENS, referenceSources: REFERENCE_SOURCES,
       offSources: [{ label: 'Open Food Facts', url: 'https://world.openfoodfacts.org/data' }],
       novaSources: [{ label: 'Open Food Facts · NOVA', url: 'https://world.openfoodfacts.org/nova' }],
@@ -283,9 +320,10 @@ export default {
     products() { return analyseProducts(this.items, this.fetched) },
     charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore', 'forest'].map(kind => [kind, distribution(this.products, kind)])) },
     nutrients() { return Object.fromEntries(Object.keys(NUTRIENTS).map(key => [key, nutrientTotal(this.products, key)])) },
+    // Drinks sold by volume are counted as 1 ml ≈ 1 g
     weight() {
-      const known = this.products.filter(p => p.grams !== null)
-      return { items: known, known: known.length, grams: known.length ? known.reduce((sum, p) => sum + p.grams, 0) : null }
+      const known = this.products.filter(p => p.grams !== null || p.ml !== null)
+      return { items: known, known: known.length, grams: known.length ? known.reduce((sum, p) => sum + (p.grams ?? p.ml), 0) : null }
     },
     carbon() { return carbonTotal(this.products) },
     additives() { return additiveSummary(this.products) },
@@ -296,6 +334,7 @@ export default {
         { key: 'fairTrade', items: this.products.filter(p => p.labels?.some(l => l.includes('fair-trade'))) }
       ]
     },
+    sortedProducts() { return sortProducts(this.products, this.productSort, this.sortReverse, this.selectedNutrients) },
     pricedProducts() { return this.products.filter(p => p.lineTotal !== null) },
     totalSpent() { return this.pricedProducts.reduce((sum, p) => sum + p.lineTotal, 0) },
     improvements() { return this.products.map(p => ({ ...p, reasons: improvementReasons(p, this.selectedNutrients) })).filter(p => p.reasons.length) },
@@ -307,7 +346,9 @@ export default {
   watch: {
     barcodes: { handler: 'loadDetails', immediate: true },
     selectedAllergens: { handler: 'savePreferences', deep: true },
-    selectedNutrients: { handler: 'savePreferences', deep: true }
+    selectedNutrients: { handler: 'savePreferences', deep: true },
+    productSort: 'savePreferences',
+    sortReverse: 'savePreferences'
   },
   mounted() {
     if (this.$route.query.mock === '1' || !this.items.length) this.appStore.loadMockReceipt()
@@ -329,10 +370,12 @@ export default {
         if (requestId === this.requestId) this.detailsStatus = failed ? 'partial' : 'done'
       })
     },
-    savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
+    savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients, sort: this.productSort, reverse: this.sortReverse })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
     coverage(known) { return this.$t('score.ui.coverage', { known, total: this.products.length }) },
     formatNumber(value, digits = 0) { return new Intl.NumberFormat(this.$i18n.locale, { maximumFractionDigits: digits }).format(value) },
     formatMoney(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: this.receipt.currency || 'EUR' }).format(value) },
+    formatPercent(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 0 }).format(value) },
+    formatMl(value) { return value >= 1000 ? `${this.formatNumber(value / 1000, 2)} L` : `${this.formatNumber(value, 0)} ml` },
     formatGrams(value) { return value === null ? this.$t('score.noData') : value >= 1000 ? `${this.formatNumber(value / 1000, 2)} kg` : `${this.formatNumber(value, 1)} g` },
     additiveName(tag) { return ADDITIVES[tag]?.name || tag.replace(/^en:/, '').toUpperCase() },
     reasonLabel(reason) {
@@ -344,7 +387,7 @@ export default {
 </script>
 
 <style scoped>
-.score { min-height: 100dvh; padding: 1.5rem; color: #f7fbf4; background: radial-gradient(90% 70% at 80% 0%, #1f6b4a59, transparent 55%), linear-gradient(160deg, #16382a, #0e241c); }
+.score { min-height: 100dvh; padding: 1.5rem; color: #f7fbf4; background: #16382a; }
 .score__content { width: min(68rem, 100%); margin: auto; }
 .score__header, .score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
 .score__header { flex-wrap: wrap; margin-bottom: 2rem; }
@@ -377,7 +420,23 @@ summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px 
 .score__nested:last-child { border-bottom: 0; }
 .score__metric-summary { display: flex; justify-content: space-between; gap: 0.5rem; }
 .score__metric-summary::before { content: '+'; color: #bdcebe; }
+details[open] > .score__metric-summary::before { content: '−'; }
 .score__spaced { margin-top: 1rem; }
+.score__sort { margin: 0.85rem 0 0.5rem; padding: 0.85rem; border: 1px solid #f7fbf414; border-radius: 0.75rem; background: #0e241c80; }
+.score__sort-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; min-height: 2rem; }
+.score__sort-order { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem; border: 1px solid #c9e88e; border-radius: 1rem; color: #c9e88e; font-size: 0.8rem; font-weight: 600; }
+.score__sort-order:hover { background: #c9e88e14; }
+.score__sort-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.5rem; margin-top: 0.65rem; }
+.score__sort-option { position: relative; display: flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.75rem; border: 1px solid #f7fbf426; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.score__sort-option:hover { background: #f7fbf40d; }
+.score__sort-option:has(input:checked) { background: #c9e88e20; border-color: #c9e88e; color: #e8f6cf; }
+.score__sort-option:has(input:focus-visible) { outline: 2px solid #c9e88e; outline-offset: 2px; }
+.score__sort-option input { position: absolute; opacity: 0; pointer-events: none; }
+.score__sort-option .v-icon { color: #bdcebe; }
+.score__sort-option:has(input:checked) .v-icon { color: #c9e88e; }
+.score__contribution { display: grid; grid-template-columns: minmax(3rem, 6rem) 1fr; align-items: center; gap: 0.6rem; }
+.score__contribution-bar { height: 0.4rem; border-radius: 1rem; background: #f7fbf414; overflow: hidden; }
+.score__contribution-bar span { display: block; height: 100%; background: #c9e88e; }
 .score__choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
 .score__choices label { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.65rem; font-size: 0.85rem; border: 1px solid #f7fbf426; border-radius: 1rem; cursor: pointer; }
 .score__choices label:has(input:checked) { background: #c9e88e20; border-color: #c9e88e; }

@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { build } from 'esbuild'
 const bundled = await build({ entryPoints: ['src/utils/basketAnalysis.js'], bundle: true, write: false, platform: 'node', format: 'esm', alias: { '@': './src' } })
 const analysis = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`)
-const { analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons } = analysis
+const { analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts } = analysis
 const code = '12345678'
 const off = {
   quantity: '500 g', nutriscore_grade: 'e', nova_group: 4, ecoscore_grade: 'f',
@@ -36,7 +36,17 @@ assert.equal(distribution(products, 'forest').segments.find(s => s.key === 'd').
 assert.equal(distribution(products, 'nutriscore').segments.find(s => s.key === 'unknown').count, 2)
 assert.equal(nutrientTotal(products, 'sugars').known, 2)
 assert.equal(nutrientTotal(products, 'salt').grams, products[1].nutrients.salt_100g * 15, 'real zero is included')
+const sugars = nutrientTotal(products, 'sugars')
+assert.equal(sugars.items[0].contribution, 150, 'biggest contributor first')
+assert.ok(sugars.items[0].contribution >= sugars.items[1].contribution)
+assert.ok(Math.abs(sugars.items.reduce((sum, p) => sum + p.share, 0) - 1) < 1e-9, 'shares add up to 100 %')
 assert.equal(carbonTotal(products).known, 2)
+const sample = [{ name: 'B', nutriscore: 'e', lineTotal: 2 }, { name: 'A', nutriscore: null, lineTotal: 5 }, { name: 'C', nutriscore: 'a', lineTotal: null }]
+assert.deepEqual(sortProducts(sample, 'nutriscore').map(p => p.name), ['C', 'B', 'A'], 'best grade first, unknown last')
+assert.deepEqual(sortProducts(sample, 'nutriscore', true).map(p => p.name), ['B', 'C', 'A'], 'reversed, unknown still last')
+assert.deepEqual(sortProducts(sample, 'price').map(p => p.name), ['A', 'B', 'C'])
+assert.deepEqual(sortProducts(sample, 'name').map(p => p.name), ['A', 'B', 'C'])
+assert.deepEqual(sortProducts(sample, 'receipt').map(p => p.name), ['B', 'A', 'C'])
 assert.equal(additiveSummary(products).list.length, 1)
 assert.equal(additiveSummary(products).products, 1)
 assert.equal(additiveSummary(products).unknown, 2)

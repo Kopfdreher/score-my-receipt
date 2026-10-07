@@ -107,8 +107,14 @@ export function distribution(products, kind) {
 
 export function nutrientTotal(products, key) {
   const field = NUTRIENTS[key]
-  const items = products.filter((p) => numeric(p.nutrients[field]) && (p.grams !== null || p.ml !== null))
-  return { items, known: items.length, grams: items.length ? items.reduce((sum, p) => sum + p.nutrients[field] * (p.grams ?? p.ml) / 100, 0) : null }
+  const known = products.filter((p) => numeric(p.nutrients[field]) && (p.grams !== null || p.ml !== null))
+  const withGrams = known.map((p) => ({ ...p, contribution: p.nutrients[field] * (p.grams ?? p.ml) / 100 }))
+  const grams = known.length ? withGrams.reduce((sum, p) => sum + p.contribution, 0) : null
+  // Biggest contributors first, with their share of the basket total
+  const items = withGrams
+    .map((p) => ({ ...p, share: grams ? p.contribution / grams : 0 }))
+    .sort((a, b) => b.contribution - a.contribution)
+  return { items, known: known.length, grams }
 }
 
 export function carbonTotal(products) {
@@ -133,6 +139,39 @@ export function allergenGroups(products, allergen) {
     else groups.unknown.push(p)
   })
   return groups
+}
+
+// Sort orders for the product list: each one returns a number, smaller = shown first
+// (best grade, biggest amount...). Products without the value always go last.
+const GRADE_ORDER = {
+  nutriscore: ['a', 'b', 'c', 'd', 'e'],
+  nova: ['1', '2', '3', '4'],
+  greenScore: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'],
+  forest: ['a', 'b', 'c', 'd']
+}
+const gradeRank = (kind) => (p) => p[kind] === null ? null : GRADE_ORDER[kind].indexOf(p[kind])
+const largestFirst = (value) => (p) => value(p) === null ? null : -value(p)
+export const SORTS = {
+  receipt: () => 0,
+  name: () => 0,
+  review: (p, selected) => -improvementReasons(p, selected).length,
+  nutriscore: gradeRank('nutriscore'),
+  nova: gradeRank('nova'),
+  greenScore: gradeRank('greenScore'),
+  forest: gradeRank('forest'),
+  co2: largestFirst((p) => p.co2Kg),
+  price: largestFirst((p) => p.lineTotal),
+  weight: largestFirst((p) => p.grams ?? p.ml)
+}
+
+export function sortProducts(products, sort = 'receipt', reverse = false, selected = []) {
+  const rank = SORTS[sort] || SORTS.receipt
+  const ranked = products.map((p, index) => ({ p, index, value: rank(p, selected) }))
+  const known = ranked.filter((r) => r.value !== null)
+  const unknown = ranked.filter((r) => r.value === null)
+  known.sort((a, b) => (sort === 'name' ? a.p.name.localeCompare(b.p.name) : a.value - b.value) || a.index - b.index)
+  if (reverse) known.reverse()
+  return [...known, ...unknown].map((r) => r.p)
 }
 
 export function improvementReasons(product, selected = []) {
