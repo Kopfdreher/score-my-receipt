@@ -174,6 +174,7 @@ export default {
       const region = (locale.split('-')[1] || '').toUpperCase()
       if (region === 'US') return 'USD'
       if (region === 'GB') return 'GBP'
+	  if (region == 'COL') return 'COP'
       return 'EUR'
     },
     clearPoll() {

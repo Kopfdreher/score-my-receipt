@@ -97,6 +97,15 @@ export default {
       .then((response) => response.json())
   },
 
+  updateProof(proofId, inputData = {}) {
+    const endpointWithParams = `/proofs/${proofId}?${buildURLParams()}`
+    return fetchOpenPrices(endpointWithParams, {
+      method: 'PATCH',
+      body: JSON.stringify(inputData)
+    }, true)
+      .then((response) => response.json())
+  },
+
   getReceiptItems(params = {}) {
     const defaultParams = { page: 1, size: OP_DEFAULT_PAGE_SIZE }
     const endpointWithParams = `/receipt-items?${buildURLParams({ ...defaultParams, ...params })}`

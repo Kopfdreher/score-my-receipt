@@ -62,7 +62,7 @@ export default {
   openstreetmapPhotonSearch(q, restrictToShop = true, filterResultsOnProperties = true) {
     let url = `${constants.OSM_PHOTON_SEARCH_URL}?q=${encodeURIComponent(q)}&limit=${LOCATION_SEARCH_LIMIT}`
     if (restrictToShop) {
-      url += '&osm_tag=shop&osm_tag=amenity'
+      url += '&osm_tag=shop'
     }
     return fetch(url, {
       method: 'GET',
@@ -79,6 +79,29 @@ export default {
         filterResultsOnProperties
           ? !constants.NOMINATIM_RESULT_TYPE_EXCLUDE_LIST.includes(location.properties?.osm_value)
           : true
+      )))
+  },
+
+  /**
+   * Photon reverse search by coordinates
+   * @param {number} lat latitude
+   * @param {number} lon longitude
+   */
+  openstreetmapPhotonReverse(lat, lon) {
+    const url = `${constants.OSM_PHOTON_REVERSE_URL}?lat=${lat}&lon=${lon}&limit=${LOCATION_SEARCH_LIMIT}&osm_tag=shop`
+    return fetch(url, {
+      method: 'GET',
+      headers: withUserAgent(OP_DEFAULT_HEADERS)
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Photon reverse failed (${response.status})`)
+        }
+        return response.json()
+      })
+      .then((data) => data.features || [])
+      .then((data) => data.filter((location) => (
+        !constants.NOMINATIM_RESULT_TYPE_EXCLUDE_LIST.includes(location.properties?.osm_value)
       )))
   },
 
