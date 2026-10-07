@@ -6,7 +6,10 @@
     "title": "Scan your receipt",
     "support": "Take a photo or choose a receipt image. We’ll read the items with Open Prices and score them with Open Food Facts.",
     "scanCta": "Scan receipt",
-    "hint": "JPG, PNG, or PDF"
+    "hint": "JPG or PNG",
+    "uploading": "Uploading receipt…",
+    "extracting": "Reading items…",
+    "error": "Could not upload this receipt. Try another photo."
   },
   "review": {
     "title": "Adjust receipt",
@@ -19,6 +22,7 @@
     "locationNoResults": "No matching shops found. You can still score this receipt.",
     "locationError": "Could not search OpenStreetMap. Try again.",
     "date": "Date",
+    "currency": "Currency",
     "contributeLabel": "Contribute prices to Open Prices",
     "contributeEnabledHint": "Shop recognized — you can share these prices with Open Prices.",
     "contributeDisabledHint": "Without a recognized shop location you still get Nutri-Score analysis, but you cannot contribute prices.",
@@ -86,6 +90,11 @@
     "fetchAllError": "Could not fetch products from Open Food Facts. Try again.",
     "summary": "{count} prices · {total}",
     "empty": "No items yet. Scan a receipt or load the sample list.",
+    "emptyCaptured": "No items were read from this receipt. Add them below.",
+    "contributeNeedsProof": "Prices can only be contributed from a receipt uploaded to Open Prices.",
+    "contributeNeedsDate": "Add the receipt date before contributing prices.",
+    "contributeNoLines": "Each contributed line needs a price and a barcode or category.",
+    "contributeError": "Could not save prices to Open Prices. Check the lines and try again.",
     "loadMock": "Load sample items",
     "back": "Back",
     "next": "Continue to score"

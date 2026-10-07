@@ -54,6 +54,17 @@
           hide-details
           @update:model-value="onDateChange"
         />
+
+        <v-select
+          :model-value="currency"
+          :items="currencyOptions"
+          :label="$t('review.currency')"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="review__meta-field"
+          @update:model-value="onCurrencyChange"
+        />
       </div>
 
       <div class="review__contribute">
@@ -123,8 +134,14 @@
       </div>
 
       <div v-else class="review__empty">
-        <p>{{ $t('review.empty') }}</p>
-        <v-btn color="primary" variant="tonal" size="small" @click="loadMock">
+        <p>{{ receipt.proofId ? $t('review.emptyCaptured') : $t('review.empty') }}</p>
+        <v-btn
+          v-if="!receipt.proofId"
+          color="primary"
+          variant="tonal"
+          size="small"
+          @click="loadMock"
+        >
           {{ $t('review.loadMock') }}
         </v-btn>
       </div>
@@ -429,7 +446,8 @@
       </v-btn>
       <v-btn
         color="primary"
-        :disabled="!items.length"
+        :disabled="!items.length || contributing"
+        :loading="contributing"
         @click="goNext"
       >
         {{ $t('review.next') }}
@@ -443,6 +461,7 @@ import { defineAsyncComponent } from 'vue'
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
+import openPricesApi from '@/services/openPricesApi'
 import openStreetMapApi from '@/services/openStreetMapApi'
 import constants from '@/constants'
 
@@ -482,7 +501,9 @@ export default {
       locationSearchTimer: null,
       locationMessage: null,
       locationMessageType: 'info',
-      selectedLocation: null
+      selectedLocation: null,
+      contributing: false,
+      currencyOptions: ['EUR', 'USD', 'GBP']
     }
   },
   computed: {
@@ -583,8 +604,14 @@ export default {
   },
   methods: {
     ensureReceipt() {
-      if (this.$route.query.mock === '1' || this.appStore.getItems.length === 0) {
+      if (this.$route.query.mock === '1') {
         this.appStore.loadMockReceipt()
+        this.syncSelectedLocationFromStore()
+        return
+      }
+      if (!this.appStore.getReceipt.proofId && this.appStore.getItems.length === 0) {
+        this.appStore.loadMockReceipt()
+        this.syncSelectedLocationFromStore()
       }
     },
     loadMock() {
@@ -607,6 +634,9 @@ export default {
     },
     onDateChange(value) {
       this.appStore.updateReceiptMeta({ date: value || null })
+    },
+    onCurrencyChange(value) {
+      this.appStore.updateReceiptMeta({ currency: value || 'EUR' })
     },
     onContributeChange(value) {
       if (!this.canContribute) {
@@ -844,7 +874,6 @@ export default {
       if (!item || !product) return
 
       const patch = {
-        verified: false,
         categoryTag: null,
         noBarcodeAvailable: false,
         off: {
@@ -925,7 +954,7 @@ export default {
       this.appStore.updateItem(itemId, {
         barcode: null,
         off: null,
-        verified: true,
+        verified: Boolean(item.categoryTag),
         noBarcodeAvailable: true,
         categoryTag: item.categoryTag || null
       })
@@ -1034,7 +1063,68 @@ export default {
       this.$router.push({ name: 'upload' })
     },
     goNext() {
-      this.$router.push({ name: 'score' })
+      if (!this.contributePrices) {
+        this.$router.push({ name: 'score' })
+        return
+      }
+      this.contributeThenContinue()
+    },
+    contributeThenContinue() {
+      const proofId = Number(this.receipt.proofId)
+      if (!Number.isInteger(proofId)) {
+        this.locationMessageType = 'warning'
+        this.locationMessage = this.$t('review.contributeNeedsProof')
+        return
+      }
+      if (!this.receipt.date) {
+        this.locationMessageType = 'warning'
+        this.locationMessage = this.$t('review.contributeNeedsDate')
+        return
+      }
+
+      const lines = this.items.filter((item) => this.canPublishPrice(item))
+      if (!lines.length) {
+        this.locationMessageType = 'warning'
+        this.locationMessage = this.$t('review.contributeNoLines')
+        return
+      }
+
+      this.contributing = true
+      this.locationMessage = null
+      Promise.all(lines.map((item) => openPricesApi.createPrice(this.pricePayload(item, proofId))))
+        .then(() => this.$router.push({ name: 'score' }))
+        .catch(() => {
+          this.locationMessageType = 'error'
+          this.locationMessage = this.$t('review.contributeError')
+        })
+        .finally(() => {
+          this.contributing = false
+        })
+    },
+    canPublishPrice(item) {
+      const price = Number(item.price)
+      if (!Number.isFinite(price)) return false
+      return Boolean(item.barcode || item.categoryTag)
+    },
+    pricePayload(item, proofId) {
+      const payload = {
+        price: Number(item.price),
+        currency: this.currency,
+        date: this.receipt.date,
+        receipt_quantity: Number(item.quantity) || 1,
+        location_osm_id: this.receipt.locationOsmId,
+        location_osm_type: this.receipt.locationOsmType,
+        proof_id: proofId,
+        product_name: item.name || null
+      }
+      if (item.barcode) {
+        payload.type = 'PRODUCT'
+        payload.product_code = String(item.barcode)
+      } else {
+        payload.type = 'CATEGORY'
+        payload.category_tag = item.categoryTag
+      }
+      return payload
     }
   }
 }
@@ -1097,7 +1187,7 @@ export default {
 
 .review__meta-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(10rem, 12rem);
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 12rem) minmax(7rem, 8.5rem);
   gap: 0.75rem;
   align-items: start;
 }
