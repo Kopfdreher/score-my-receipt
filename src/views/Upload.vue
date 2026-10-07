@@ -4,9 +4,6 @@
       <p class="upload__brand">
         {{ $t('app.name') }}
       </p>
-      <div class="upload__header-actions">
-        <UserSessionBar />
-      </div>
     </header>
 
     <section class="upload__hero">
@@ -52,7 +49,6 @@
 </template>
 
 <script>
-import { defineAsyncComponent } from 'vue'
 import { useAppStore } from '@/store'
 import constants from '@/constants'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
@@ -63,9 +59,6 @@ const POLL_TRIES = 15
 
 export default {
   name: 'Upload',
-  components: {
-    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue'))
-  },
   data() {
     return {
       busy: false,
@@ -270,25 +263,45 @@ export default {
 
 .upload__header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 3rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
 }
 
 .upload__brand {
   margin: 0;
   font-family: var(--font-display, Georgia, serif);
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 700;
 }
 
 .upload__header-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .upload__header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  .upload__brand {
+    font-size: 1.35rem;
+  }
+
+  .upload__header-actions {
+    width: auto;
+    max-width: min(36rem, 70%);
+  }
 }
 
 .upload__hero {

@@ -249,5 +249,46 @@ export default {
         const label = data && data.suggestions && data.suggestions[0]
         return labelToCategoryTag(label)
       })
+  },
+
+  /**
+   * Find a representative product image for an OFF category tag (e.g. en:apples).
+   */
+  openfoodfactsCategoryImageSearch(categoryTag) {
+    const tag = String(categoryTag || '').trim()
+    if (!tag) {
+      return Promise.resolve(null)
+    }
+
+    const params = new URLSearchParams({
+      categories_tags: tag,
+      fields: 'code,product_name,image_front_small_url,image_front_url',
+      page_size: '12',
+      page: '1'
+    })
+    const url = `${constants.OFF_SEARCH_URL}?${params.toString()}`
+
+    return fetch(url, {
+      method: 'GET',
+      headers: OP_DEFAULT_HEADERS
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`OFF category search failed (${response.status})`)
+        }
+        return response.json()
+      })
+      .then((data) => {
+        const products = (data && data.products) || []
+        const withImage = products.find((product) => (
+          product.image_front_small_url || product.image_front_url
+        ))
+        if (!withImage) return null
+        return {
+          product_name: withImage.product_name || null,
+          image_front_small_url: withImage.image_front_small_url || null,
+          image_front_url: withImage.image_front_url || withImage.image_front_small_url || null
+        }
+      })
   }
 }

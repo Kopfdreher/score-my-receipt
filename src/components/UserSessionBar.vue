@@ -1,25 +1,42 @@
 <template>
-  <div class="session-bar">
-    <template v-if="isSignedIn">
-      <span class="session-bar__user">
-        {{ $t('auth.signedInAs', { username: appStore.user.username }) }}
-      </span>
-      <button
-        type="button"
-        class="session-bar__action"
-        @click="signOut"
-      >
-        {{ $t('auth.signOut') }}
-      </button>
-    </template>
-    <router-link
-      v-else
-      class="session-bar__action"
-      to="/sign-in"
-    >
+  <nav class="session-bar" :aria-label="$t('nav.ariaLabel')">
+    <p v-if="isSignedIn" class="session-bar__welcome">
+      <span class="session-bar__welcome-label">{{ $t('auth.welcome') }}</span>
+      <span class="session-bar__welcome-name">{{ appStore.user.username }}</span>
+    </p>
+    <router-link v-else class="session-bar__signin" to="/sign-in">
       {{ $t('signIn.title') }}
     </router-link>
-  </div>
+
+    <v-menu v-if="isSignedIn" location="bottom end" :offset="6">
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          v-bind="menuProps"
+          icon="mdi-menu"
+          variant="text"
+          class="session-bar__menu-btn"
+          :aria-label="$t('nav.menu')"
+        />
+      </template>
+      <v-list density="comfortable" class="session-bar__list" min-width="200">
+        <v-list-item
+          v-for="entry in menuEntries"
+          :key="entry.to"
+          :to="entry.to"
+          :prepend-icon="entry.icon"
+          :title="entry.title"
+          :active="isRoute(entry.route)"
+          color="primary"
+        />
+        <v-divider />
+        <v-list-item
+          prepend-icon="mdi-logout"
+          :title="$t('auth.signOut')"
+          @click="signOut"
+        />
+      </v-list>
+    </v-menu>
+  </nav>
 </template>
 
 <script>
@@ -32,9 +49,20 @@ export default {
     ...mapStores(useAppStore),
     isSignedIn() {
       return Boolean(this.appStore.user.token)
+    },
+    menuEntries() {
+      return [
+        { to: '/upload', route: 'upload', icon: 'mdi-camera-outline', title: this.$t('nav.upload') },
+        { to: '/review', route: 'review', icon: 'mdi-pencil-outline', title: this.$t('nav.review') },
+        { to: '/score', route: 'score', icon: 'mdi-leaf', title: this.$t('nav.score') },
+        { to: '/history', route: 'history', icon: 'mdi-history', title: this.$t('history.nav') }
+      ]
     }
   },
   methods: {
+    isRoute(name) {
+      return this.$route.name === name
+    },
     signOut() {
       this.appStore.signOut()
       this.$router.push('/sign-in')
@@ -46,34 +74,44 @@ export default {
 <style scoped>
 .session-bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
 }
 
-.session-bar__user {
-  color: rgba(247, 251, 244, 0.78);
-  font-size: 0.95rem;
-}
-
-.session-bar__action {
-  appearance: none;
-  background: none;
-  border: 0;
-  padding: 0;
+.session-bar__welcome {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   margin: 0;
-  font: inherit;
-  font-weight: 500;
-  color: var(--smr-mist, #E8F2E6);
-  text-decoration: none;
-  border-bottom: 1px solid rgba(232, 242, 230, 0.45);
-  cursor: pointer;
+  line-height: 1.2;
 }
 
-.session-bar__action:hover,
-.session-bar__action:focus-visible {
-  color: #fff;
-  border-color: #fff;
-  outline: none;
+.session-bar__welcome-label {
+  font-size: 0.72rem;
+  color: rgba(232, 242, 230, 0.7);
+}
+
+.session-bar__welcome-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #F7FBF4;
+}
+
+.session-bar__signin {
+  color: #F7FBF4;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.session-bar__menu-btn {
+  flex-shrink: 0;
+  margin-right: -0.5rem;
+  color: #F7FBF4 !important;
 }
 </style>
