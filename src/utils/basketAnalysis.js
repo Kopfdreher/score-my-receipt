@@ -47,12 +47,12 @@ export function analyseProducts(items, fetched = {}) {
     const quantity = positive(line.quantity) ? line.quantity : 1
     const barcode = /^\d{8,14}$/.test(String(line.barcode || '')) ? String(line.barcode) : null
     const reference = !barcode ? PRODUCE[line.categoryTag] : null
-    const product = barcode ? { ...(line.off || {}), ...(fetched[barcode] || {}) } : (line.off || {})
+    const product = barcode ? (Object.prototype.hasOwnProperty.call(fetched, barcode) ? fetched[barcode] || {} : line.off || {}) : (line.off || {})
     const amount = amountFor(line, barcode ? product : null, quantity)
     const nutrients = reference?.nutriments || product.nutriments || {}
-    const nutriscore = grade(line.off?.nutriscore_grade, ['a', 'b', 'c', 'd', 'e']) || grade(product.nutriscore_grade, ['a', 'b', 'c', 'd', 'e'])
-    const nova = grade(line.off?.nova_group, ['1', '2', '3', '4']) || grade(product.nova_group, ['1', '2', '3', '4']) || (reference ? '1' : null)
-    const greenScore = grade(line.off?.environmental_score_grade || line.off?.ecoscore_grade, ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f']) || grade(product.environmental_score_grade || product.ecoscore_grade, ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'])
+    const nutriscore = grade(product.nutriscore_grade, ['a', 'b', 'c', 'd', 'e'])
+    const nova = grade(product.nova_group, ['1', '2', '3', '4']) || (reference ? '1' : null)
+    const greenScore = grade(product.environmental_score_grade || product.ecoscore_grade, ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'])
     const forest = grade(product.forest_footprint_2026?.grade, ['a', 'b', 'c', 'd'])
     const co2PerKg = reference?.co2PerKg ?? product.environmental_score_data?.agribalyse?.co2_total ?? product.ecoscore_data?.agribalyse?.co2_total
     // For category estimates merge only the SAME reference and analysis data.
@@ -60,7 +60,7 @@ export function analyseProducts(items, fetched = {}) {
       ? `reference:${reference.referenceId}:${JSON.stringify({ nutriscore, nova, greenScore, forest, nutrients, labels: product.labels_tags, levels: product.nutrient_levels, allergens: product.allergens_tags, traces: product.traces_tags, ingredients: product.ingredients_text, additives: product.additives_tags })}`
       : `line:${line.id || index}`
     const entry = {
-      id: key, name: line.name || '', barcode, categoryTag: line.categoryTag || null,
+      id: key, itemId: line.id, name: barcode ? product.product_name || line.name || '' : line.name || '', barcode, categoryTag: line.categoryTag || null,
       quantity, lineCount: 1, sourceUrl: sourceUrl({ barcode, categoryTag: line.categoryTag }),
       sourceLinks: reference ? [REFERENCE_SOURCES[1], { label: 'AGRIBALYSE 3.2 · ADEME', url: reference.agribalyseCode ? `https://agribalyse.ademe.fr/app/aliments/${encodeURIComponent(reference.agribalyseCode)}` : REFERENCE_SOURCES[2].url }] : REFERENCE_SOURCES.slice(0, 1),
       estimated: Boolean(reference), referenceName: reference?.referenceName,
@@ -74,13 +74,15 @@ export function analyseProducts(items, fetched = {}) {
       grams: amount.grams, ml: amount.ml,
       co2Kg: amount.grams !== null && numeric(co2PerKg) ? amount.grams / 1000 * co2PerKg : null,
       lineTotal: numeric(line.price) ? line.price * quantity : null,
-      names: [line.name || ''],
+      names: [barcode ? product.product_name || line.name || '' : line.name || ''],
+      receiptNames: [line.name || ''],
       categoryTags: line.categoryTag ? [line.categoryTag] : [],
       missingWeight: amount.grams === null
     }
     const existing = groups.get(key)
     if (!existing) groups.set(key, entry)
     else {
+      existing.receiptNames = [...new Set([...existing.receiptNames, ...entry.receiptNames])]
       existing.quantity += quantity
       existing.lineCount += 1
       existing.names = [...new Set([...existing.names, ...entry.names])]
@@ -142,14 +144,14 @@ export function allergenGroups(products, allergen) {
 }
 
 // Sort orders for the product list: each one returns a number, smaller = shown first
-// (best grade, biggest amount...). Products without the value always go last.
+// (grades needing attention, biggest amount...). Products without the value always go last.
 const GRADE_ORDER = {
   nutriscore: ['a', 'b', 'c', 'd', 'e'],
   nova: ['1', '2', '3', '4'],
   greenScore: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'],
   forest: ['a', 'b', 'c', 'd']
 }
-const gradeRank = (kind) => (p) => p[kind] === null ? null : GRADE_ORDER[kind].indexOf(p[kind])
+const gradeRank = (kind) => (p) => p[kind] == null ? null : -GRADE_ORDER[kind].indexOf(p[kind])
 const largestFirst = (value) => (p) => value(p) === null ? null : -value(p)
 export const SORTS = {
   receipt: () => 0,
@@ -159,6 +161,9 @@ export const SORTS = {
   nova: gradeRank('nova'),
   greenScore: gradeRank('greenScore'),
   forest: gradeRank('forest'),
+  salt: largestFirst((p) => numeric(p.nutrients?.salt_100g) ? p.nutrients.salt_100g : null),
+  sugars: largestFirst((p) => numeric(p.nutrients?.sugars_100g) ? p.nutrients.sugars_100g : null),
+  fat: largestFirst((p) => numeric(p.nutrients?.fat_100g) ? p.nutrients.fat_100g : null),
   co2: largestFirst((p) => p.co2Kg),
   price: largestFirst((p) => p.lineTotal),
   weight: largestFirst((p) => p.grams ?? p.ml)

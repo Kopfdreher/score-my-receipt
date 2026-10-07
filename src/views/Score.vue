@@ -14,8 +14,39 @@
           </p>
           <h1>{{ $t('score.ui.title') }}</h1>
         </div>
-        <InfoTip :title="$t('score.ui.title')" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
+        <div class="score__heading-tools">
+          <v-btn variant="outlined" @click="historyOpen = true">
+            {{ $t('score.ui.history.title') }}
+          </v-btn>
+          <InfoTip :title="$t('score.ui.title')" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
+        </div>
       </div>
+      <v-alert v-if="storageError" type="warning" variant="tonal">
+        {{ $t('score.ui.history.error') }}
+      </v-alert>
+      <v-dialog v-model="historyOpen" max-width="600">
+        <v-card :title="$t('score.ui.history.title')">
+          <v-card-text>
+            <p v-if="!savedReceipts.length">
+              {{ $t('score.ui.history.empty') }}
+            </p>
+            <div v-for="entry in savedReceipts" :key="entry.id" class="score__history-row">
+              <div>{{ entry.receipt.date || $t('score.ui.history.unknownDate') }}<br>{{ $t('score.ui.productsCount', entry.products.length) }} · {{ savedTotal(entry) }}</div>
+              <v-btn variant="text" @click="openSaved(entry)">
+                {{ $t('score.ui.history.open') }}
+              </v-btn>
+              <v-btn variant="text" @click="removeSaved(entry.id)">
+                {{ $t('score.ui.history.delete') }}
+              </v-btn>
+            </div>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn @click="historyOpen = false">
+              {{ $t('score.ui.history.close') }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
       <v-alert v-if="isMock" class="score__alert" type="info" variant="tonal" density="compact">
         {{ $t('score.mockBanner') }}
       </v-alert>
@@ -40,7 +71,7 @@
           <v-progress-circular indeterminate size="14" width="2" />{{ $t('score.detailsLoading') }}
         </p>
         <p v-else-if="detailsStatus === 'partial'" class="score__status">
-          {{ $t('score.detailsPartial') }} <button type="button" @click="loadDetails">
+          {{ $t('score.detailsPartial') }} <button type="button" @click="retryDetails">
             {{ $t('score.retry') }}
           </button>
         </p>
@@ -61,8 +92,12 @@
                 {{ coverage(additives.known) }}
               </p>
               <p class="score__coverage">
-                {{ $t('score.ui.additiveMissing', { without: additives.without, unknown: additives.unknown }) }}
+                {{ $t('score.ui.withoutAdditives', { count: additives.without }) }}
               </p>
+              <details v-if="additives.unknown" class="score__nested">
+                <summary>{{ $t('score.ui.unknownAdditives', { count: additives.unknown }) }}</summary>
+                <AnalysisProductList :products="products.filter(product => product.additives === null)" />
+              </details>
               <details v-if="additives.list.length">
                 <summary>{{ $t('score.ui.viewAdditives') }}</summary>
                 <details v-for="additive in additives.list" :key="additive.tag" class="score__nested">
@@ -131,22 +166,6 @@
             <AnalysisProductList :products="label.items" />
           </details>
         </details>
-        <details class="score__card score__section">
-          <summary>{{ $t('score.sections.spending') }}</summary>
-          <div class="score__card-heading score__spaced">
-            <p class="score__stat">
-              {{ pricedProducts.length ? formatMoney(totalSpent) : $t('score.noData') }}
-            </p><InfoTip :title="$t('score.sections.spending')" :text="$t('score.ui.info.spending')" />
-          </div>
-          <p class="score__coverage">
-            {{ coverage(pricedProducts.length) }}
-          </p>
-          <AnalysisProductList :products="pricedProducts">
-            <template #default="{ product }">
-              <span class="score__coverage">{{ formatMoney(product.lineTotal) }}</span>
-            </template>
-          </AnalysisProductList>
-        </details>
 
         <section class="score__section">
           <h2>{{ $t('score.ui.closerLook') }}</h2>
@@ -213,33 +232,49 @@
           </section>
         </section>
 
-        <details class="score__card score__section">
-          <summary>{{ $t('score.ui.allProducts', { count: products.length }) }}</summary>
-          <div class="score__sort">
-            <div class="score__sort-head">
-              <span id="score-sort-label" class="score__eyebrow">{{ $t('score.ui.sortBy') }}</span>
+        <details class="score__card score__section score__shopping">
+          <summary class="score__shopping-summary">
+            <span class="score__shopping-title">{{ $t('score.ui.shoppingSummary') }}</span>
+            <span class="score__muted">{{ $t('score.ui.productsCount', products.length) }}</span>
+            <span class="score__shopping-total">
+              <span class="score__muted">{{ $t(pricedProducts.length === products.length ? 'score.ui.totalSpent' : 'score.ui.knownSpending') }}</span>
+              <strong>{{ pricedProducts.length ? formatMoney(totalSpent) : $t('score.noData') }}</strong>
+            </span>
+            <span class="score__shopping-toggle">
+              <span class="score__show-products">{{ $t('score.ui.viewProducts') }}</span>
+              <span class="score__hide-products">{{ $t('score.ui.hideProducts') }}</span>
+              <v-icon icon="mdi-chevron-down" size="18" />
+            </span>
+          </summary>
+          <div class="score__list-toolbar">
+            <div class="score__spending-coverage">
+              <span class="score__coverage">{{ $t('score.ui.priceCoverage', { known: pricedProducts.length, total: products.length }) }}</span>
+              <InfoTip :title="$t('score.ui.totalSpent')" :text="$t('score.ui.info.spending')" />
+            </div>
+            <div class="score__sort">
+              <v-select v-model="productSort" :label="$t('score.ui.sortBy')" :items="sortOptions.map(option => ({ value: option.key, title: $t(`score.ui.sorts.${option.key}`) }))" variant="outlined" density="compact" hide-details />
               <button v-if="productSort !== 'receipt'" type="button" class="score__sort-order" :aria-label="$t('score.ui.reverseOrder')" @click="sortReverse = !sortReverse">
                 <v-icon icon="mdi-swap-vertical" size="16" />{{ $t(`score.ui.sortOrder.${productSort}.${sortReverse ? 'reversed' : 'normal'}`) }}
               </button>
             </div>
-            <div class="score__sort-options" role="radiogroup" aria-labelledby="score-sort-label">
-              <label v-for="option in sortOptions" :key="option.key" class="score__sort-option">
-                <input v-model="productSort" type="radio" name="score-sort" :value="option.key">
-                <v-icon :icon="option.icon" size="16" />{{ $t(`score.ui.sorts.${option.key}`) }}
-              </label>
-            </div>
           </div>
-          <AnalysisProductList :products="sortedProducts">
+          <AnalysisProductList :products="sortedProducts" show-receipt-names horizontal>
             <template #default="{ product }">
+              <div class="score__product-grades">
+                <span v-for="kind in ['nutriscore', 'nova', 'greenScore', 'forest']" :key="kind" class="score__product-grade">
+                  {{ $t(kind === 'forest' ? 'score.ui.forest' : `score.${kind}`) }}
+                  <strong>{{ product[kind] === null ? '?' : product[kind] === 'a-plus' ? 'A+' : product[kind].toUpperCase() }}</strong>
+                </span>
+              </div>
               <div class="score__product-meta">
                 <span>{{ $t('score.ui.purchased', { quantity: product.quantity }) }}</span>
                 <span v-if="product.grams !== null">{{ formatGrams(product.grams) }}</span>
                 <span v-else-if="product.ml !== null">{{ formatMl(product.ml) }}</span>
-                <span v-if="product.lineTotal !== null">{{ formatMoney(product.lineTotal) }}</span>
+                <strong>{{ product.lineTotal !== null ? formatMoney(product.lineTotal) : $t('score.noData') }}</strong>
               </div>
-              <div class="score__reasons">
-                <span v-for="kind in ['nutriscore', 'nova', 'greenScore', 'forest']" :key="kind" class="score__product-grade">{{ $t(kind === 'forest' ? 'score.ui.forest' : `score.${kind}`) }} <strong>{{ product[kind] === null ? '?' : product[kind] === 'a-plus' ? 'A+' : product[kind].toUpperCase() }}</strong></span>
-              </div>
+              <v-btn size="small" variant="text" @click="editProduct(product)">
+                {{ $t('score.ui.edit') }}
+              </v-btn>
             </template>
           </AnalysisProductList>
         </details>
@@ -264,6 +299,7 @@ import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
+import { readReceipts, saveReceipt, deleteReceipt, receiptSignature } from '@/services/receiptHistory'
 import ADDITIVES from '@/utils/additives.json'
 import CategoryChart from '@/components/CategoryChart.vue'
 import InfoTip from '@/components/InfoTip.vue'
@@ -279,7 +315,10 @@ const SORT_OPTIONS = [
   { key: 'co2', icon: 'mdi-molecule-co2' },
   { key: 'price', icon: 'mdi-currency-eur' },
   { key: 'weight', icon: 'mdi-weight' },
-  { key: 'name', icon: 'mdi-sort-alphabetical-ascending' }
+  { key: 'name', icon: 'mdi-sort-alphabetical-ascending' },
+  { key: 'salt', icon: 'mdi-shaker-outline' },
+  { key: 'sugars', icon: 'mdi-cube-outline' },
+  { key: 'fat', icon: 'mdi-water-outline' }
 ]
 const PREFS_KEY = 'score-my-receipt:analysis-preferences:v1'
 function preferences() {
@@ -300,6 +339,7 @@ export default {
     const prefs = preferences()
     return {
       fetched: {}, detailsStatus: 'idle', requestId: 0,
+      historyOpen: false, savedReceipts: readReceipts(), storageError: false, initializing: true,
       selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
       productSort: prefs.sort, sortReverse: prefs.reverse, sortOptions: SORT_OPTIONS,
       allergenKeys: ALLERGENS, referenceSources: REFERENCE_SOURCES,
@@ -317,7 +357,8 @@ export default {
     isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
     isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
     barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
-    products() { return analyseProducts(this.items, this.fetched) },
+    snapshotMatches() { return this.receipt.analysisSnapshot?.signature === receiptSignature(this.receipt) },
+    products() { return this.snapshotMatches ? this.receipt.analysisSnapshot.products : analyseProducts(this.items, this.fetched) },
     charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore', 'forest'].map(kind => [kind, distribution(this.products, kind)])) },
     nutrients() { return Object.fromEntries(Object.keys(NUTRIENTS).map(key => [key, nutrientTotal(this.products, key)])) },
     // Drinks sold by volume are counted as 1 ml ≈ 1 g
@@ -344,7 +385,7 @@ export default {
     glutenFreeNotListed() { return (this.allergenResults.gluten?.notListed || []).filter(p => p.labels?.includes('en:gluten-free')).length }
   },
   watch: {
-    barcodes: { handler: 'loadDetails', immediate: true },
+    items: { handler() { if (!this.initializing) this.loadDetails() }, deep: true },
     selectedAllergens: { handler: 'savePreferences', deep: true },
     selectedNutrients: { handler: 'savePreferences', deep: true },
     productSort: 'savePreferences',
@@ -352,13 +393,55 @@ export default {
   },
   mounted() {
     if (this.$route.query.mock === '1' || !this.items.length) this.appStore.loadMockReceipt()
+    this.initializing = false
+    this.loadDetails()
   },
   unmounted() { this.requestId += 1 },
   methods: {
+    editProduct(product) {
+      this.$router.push({ name: 'review', query: { edit: product.itemId } })
+    },
+    saveAnalysis() {
+      if (!this.items.length || this.snapshotMatches) return
+      try {
+        const id = this.receipt.analysisHistoryId || crypto.randomUUID()
+        const products = JSON.parse(JSON.stringify(this.products))
+        saveReceipt(this.receipt, products, id)
+        this.appStore.setAnalysisHistoryId(id)
+        this.appStore.setAnalysisSnapshot({ signature: receiptSignature(this.receipt), products })
+        this.savedReceipts = readReceipts()
+        this.storageError = false
+      } catch { this.storageError = true }
+    },
+    openSaved(entry) {
+      this.requestId += 1
+      this.fetched = {}
+      this.appStore.openSavedReceipt(entry)
+      this.historyOpen = false
+      if (this.$route.query.mock) this.$router.replace({ name: 'score' })
+      this.loadDetails()
+    },
+    removeSaved(id) {
+      try {
+        deleteReceipt(id)
+        this.savedReceipts = readReceipts()
+        if (this.receipt.analysisHistoryId === id) this.appStore.setAnalysisHistoryId(null)
+        this.storageError = false
+      } catch { this.storageError = true }
+    },
+    savedTotal(entry) {
+      const known = entry.products.filter(product => product.lineTotal !== null)
+      return known.length ? new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: entry.receipt.currency || 'EUR' }).format(known.reduce((sum, product) => sum + product.lineTotal, 0)) : this.$t('score.noData')
+    },
+    retryDetails() {
+      this.appStore.setAnalysisSnapshot(null)
+      this.loadDetails()
+    },
     loadDetails() {
+      if (this.snapshotMatches) { this.detailsStatus = 'done'; return }
       const requestId = ++this.requestId
       const missing = this.barcodes.filter(code => !(code in this.fetched))
-      if (!missing.length) { this.detailsStatus = 'done'; return }
+      if (!missing.length) { this.detailsStatus = 'done'; this.saveAnalysis(); return }
       this.detailsStatus = 'loading'
       let failed = false
       missing.reduce((chain, code) => chain.then(() => {
@@ -367,7 +450,10 @@ export default {
           if (requestId === this.requestId) this.fetched = { ...this.fetched, [code]: product }
         }).catch(() => { failed = true })
       }), Promise.resolve()).then(() => {
-        if (requestId === this.requestId) this.detailsStatus = failed ? 'partial' : 'done'
+        if (requestId === this.requestId) {
+          this.detailsStatus = failed ? 'partial' : 'done'
+          this.saveAnalysis()
+        }
       })
     },
     savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients, sort: this.productSort, reverse: this.sortReverse })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
@@ -388,6 +474,9 @@ export default {
 
 <style scoped>
 .score { min-height: 100dvh; padding: 1.5rem; color: #f7fbf4; background: #16382a; }
+.score__history-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+.score__history-row > div { flex: 1; }
+
 .score__content { width: min(68rem, 100%); margin: auto; }
 .score__header, .score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
 .score__header { flex-wrap: wrap; margin-bottom: 2rem; }
@@ -418,22 +507,33 @@ summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px 
 .score__card > details { margin-top: 0.85rem; font-size: 0.85rem; }
 .score__nested { padding: 0.65rem 0; border-bottom: 1px solid #f7fbf414; }
 .score__nested:last-child { border-bottom: 0; }
-.score__metric-summary { display: flex; justify-content: space-between; gap: 0.5rem; }
+.score__metric-summary { display: flex; align-items: center; gap: 0.6rem; }
+.score__metric-summary > strong { margin-left: auto; }
 .score__metric-summary::before { content: '+'; color: #bdcebe; }
 details[open] > .score__metric-summary::before { content: '−'; }
 .score__spaced { margin-top: 1rem; }
-.score__sort { margin: 0.85rem 0 0.5rem; padding: 0.85rem; border: 1px solid #f7fbf414; border-radius: 0.75rem; background: #0e241c80; }
-.score__sort-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; min-height: 2rem; }
-.score__sort-order { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.75rem; border: 1px solid #c9e88e; border-radius: 1rem; color: #c9e88e; font-size: 0.8rem; font-weight: 600; }
+.score__heading-tools { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0; }
+.score__shopping-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem 1.5rem; list-style: none; }
+.score__shopping-summary::-webkit-details-marker { display: none; }
+.score__shopping-title { font-family: var(--font-display, Georgia, serif); font-size: 1.15rem; }
+.score__shopping-total { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+.score__shopping-total strong { font-size: 1.1rem; }
+.score__shopping-toggle { display: inline-flex; align-items: center; gap: 0.35rem; margin-left: auto; color: #c9e88e; font-size: 0.85rem; }
+.score__hide-products { display: none; }
+.score__shopping[open] .score__show-products { display: none; }
+.score__shopping[open] .score__hide-products { display: inline; }
+.score__shopping[open] .score__shopping-toggle .v-icon { transform: rotate(180deg); }
+.score__list-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; }
+.score__spending-coverage { display: flex; align-items: center; gap: 0.5rem; }
+.score__sort { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: min(100%, 28rem); }
+.score__sort > .v-select { min-width: 13rem; flex: 1; }
+.score__sort-order { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.6rem; border: 1px solid #b9cdbd44; border-radius: 0.5rem; color: #c9e88e; font-size: 0.75rem; }
 .score__sort-order:hover { background: #c9e88e14; }
-.score__sort-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 0.5rem; margin-top: 0.65rem; }
-.score__sort-option { position: relative; display: flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.75rem; border: 1px solid #f7fbf426; border-radius: 0.6rem; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
-.score__sort-option:hover { background: #f7fbf40d; }
-.score__sort-option:has(input:checked) { background: #c9e88e20; border-color: #c9e88e; color: #e8f6cf; }
-.score__sort-option:has(input:focus-visible) { outline: 2px solid #c9e88e; outline-offset: 2px; }
-.score__sort-option input { position: absolute; opacity: 0; pointer-events: none; }
-.score__sort-option .v-icon { color: #bdcebe; }
-.score__sort-option:has(input:checked) .v-icon { color: #c9e88e; }
+.score__product-grades { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
+.score__product-grades .score__product-grade { display: flex; align-items: center; gap: 0.4rem; }
+.score__product-grades strong { color: #f7fbf4; }
+.score__shopping .score__product-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; margin: 0; }
+.score__shopping .score__product-meta strong { color: #f7fbf4; font-size: 0.9rem; }
 .score__contribution { display: grid; grid-template-columns: minmax(3rem, 6rem) 1fr; align-items: center; gap: 0.6rem; }
 .score__contribution-bar { height: 0.4rem; border-radius: 1rem; background: #f7fbf414; overflow: hidden; }
 .score__contribution-bar span { display: block; height: 100%; background: #c9e88e; }
@@ -447,7 +547,10 @@ input { accent-color: #92c76d; }
 .score__product-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
 .score__actions { flex-wrap: wrap; margin-top: 2rem; }
 .score__state { text-align: center; padding: 3rem; }
-@media (max-width: 760px) { .score { padding: 1rem; } .score__weight-detail { font-size: 0.85rem; }
+@media (max-width: 760px) { .score__heading { flex-wrap: wrap; } .score__heading-tools { margin-bottom: 1rem; }
+.score__shopping-summary { gap: 0.5rem 1rem; } .score__shopping-title { flex-basis: 100%; }
+.score__list-toolbar { align-items: stretch; } .score__sort { width: 100%; }
+.score__shopping .score__product-meta { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; gap: 0.5rem; } .score { padding: 1rem; } .score__weight-detail { font-size: 0.85rem; }
 .score__weight-detail[open] { flex-basis: 100%; }
 .score__pillars { grid-template-columns: 1fr; gap: 1.5rem; } }
 </style>

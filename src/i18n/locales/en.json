@@ -38,7 +38,7 @@
     "nameMismatchHint": "Receipt text and photo may not match — check the barcode.",
     "confirmProduct": "Confirm product",
     "productConfirmed": "Product confirmed",
-    "correctBarcode": "Correct barcode",
+    "correctBarcode": "Barcode is correct",
     "applyBarcode": "Look up barcode",
     "barcodeCorrectHint": "Enter or scan the correct barcode, then look it up.",
     "noBarcode": "No barcode",
@@ -46,7 +46,6 @@
     "noBarcodeHint": "Fresh or bulk items often have no barcode. Pick a category, or confirm that no barcode is available.",
     "noBarcodeConfirmed": "Marked as no barcode",
     "incorrectBarcode": "Incorrect barcode",
-    "correctBarcode": "Barcode is correct",
     "barcodeFieldNoBarcode": "No barcode available",
     "useCategory": "Use category",
     "confirmCategory": "Confirm category",
@@ -270,9 +269,17 @@
       "productsByGrade": "Explore grades & products",
       "viewAdditives": "Explore additives",
       "additives": "{additives} in {products}",
+      "withoutAdditives": "{count} products without listed additives",
+      "unknownAdditives": "Unknown for {count} products",
+      "shoppingSummary": "Your shopping",
+      "totalSpent": "Total spent",
+      "knownSpending": "Known spending",
+      "viewProducts": "View products",
+      "hideProducts": "Hide products",
+      "priceCoverage": "Prices known for {known} of {total} products",
       "additiveMissing": "{without} without additives · {unknown} unknown",
-      "nutritionDetails": "More nutrition details",
-      "wholeBasket": "Totals for the quantities you bought",
+      "nutritionDetails": "Nutrient totals",
+      "wholeBasket": "For the quantities purchased",
       "contributingProducts": "Products included",
       "contribution": "{grams} · {percent} of the basket total",
       "labels": "Organic & fair trade",
@@ -286,30 +293,72 @@
       "highlightCount": "{count} of {total} products highlighted",
       "noHighlights": "No products match the selected checks. Missing data is not an all-clear.",
       "allProducts": "View all products ({count})",
-      "sortBy": "Sort by",
+      "sortBy": "Order products by",
       "reverseOrder": "Reverse order",
       "sorts": {
-        "receipt": "Receipt",
-        "review": "To review",
+        "receipt": "Receipt order",
+        "review": "Highlighted products first",
         "nutriscore": "Nutri-Score",
-        "nova": "Processing",
+        "nova": "NOVA processing level",
         "greenScore": "Green-Score",
-        "forest": "Forest",
-        "co2": "CO₂",
-        "price": "Price",
+        "forest": "Forest footprint",
+        "co2": "Carbon footprint",
+        "price": "Amount spent",
         "weight": "Weight",
-        "name": "Name"
+        "name": "Name A–Z",
+        "salt": "Salt per 100 g/ml",
+        "sugars": "Sugar per 100 g/ml",
+        "fat": "Fat per 100 g/ml"
       },
       "sortOrder": {
-        "review": { "normal": "Most issues first", "reversed": "Fewest issues first" },
-        "nutriscore": { "normal": "A → E", "reversed": "E → A" },
-        "nova": { "normal": "1 → 4", "reversed": "4 → 1" },
-        "greenScore": { "normal": "A+ → F", "reversed": "F → A+" },
-        "forest": { "normal": "A → D", "reversed": "D → A" },
-        "co2": { "normal": "Highest first", "reversed": "Lowest first" },
-        "price": { "normal": "Highest first", "reversed": "Lowest first" },
-        "weight": { "normal": "Heaviest first", "reversed": "Lightest first" },
-        "name": { "normal": "A → Z", "reversed": "Z → A" }
+        "review": {
+          "normal": "Most issues first",
+          "reversed": "Fewest issues first"
+        },
+        "nutriscore": {
+          "normal": "E → A",
+          "reversed": "A → E"
+        },
+        "nova": {
+          "normal": "4 → 1",
+          "reversed": "1 → 4"
+        },
+        "greenScore": {
+          "normal": "F → A+",
+          "reversed": "A+ → F"
+        },
+        "forest": {
+          "normal": "D → A",
+          "reversed": "A → D"
+        },
+        "co2": {
+          "normal": "Highest first",
+          "reversed": "Lowest first"
+        },
+        "price": {
+          "normal": "Highest first",
+          "reversed": "Lowest first"
+        },
+        "weight": {
+          "normal": "Heaviest first",
+          "reversed": "Lightest first"
+        },
+        "name": {
+          "normal": "A → Z",
+          "reversed": "Z → A"
+        },
+        "salt": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        },
+        "sugars": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        },
+        "fat": {
+          "normal": "Highest first · per 100 g/ml",
+          "reversed": "Lowest first · per 100 g/ml"
+        }
       },
       "purchased": "Quantity bought: {quantity}",
       "noSource": "No product or category source available",
@@ -360,7 +409,17 @@
         "highlights": "Nutri-Score D/E, NOVA 4 and Green-Score D/E/F are highlighted. Optional high sugar, salt and fat checks use published Open Food Facts nutrient levels. Each product appears once with all reasons. Missing data cannot clear a product."
       },
       "additivesCount": "{n} additive | {n} additives",
-      "glutenFreeLabel": "Labelled gluten-free"
+      "glutenFreeLabel": "Labelled gluten-free",
+      "edit": "Edit",
+      "history": {
+        "title": "Saved receipts",
+        "empty": "No saved receipts yet.",
+        "unknownDate": "Receipt date unknown",
+        "open": "Open",
+        "delete": "Delete",
+        "close": "Close",
+        "error": "Could not save changes on this device. Browser storage may be full or unavailable."
+      }
     }
   },
   "auth": {

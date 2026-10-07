@@ -42,8 +42,8 @@ assert.ok(sugars.items[0].contribution >= sugars.items[1].contribution)
 assert.ok(Math.abs(sugars.items.reduce((sum, p) => sum + p.share, 0) - 1) < 1e-9, 'shares add up to 100 %')
 assert.equal(carbonTotal(products).known, 2)
 const sample = [{ name: 'B', nutriscore: 'e', lineTotal: 2 }, { name: 'A', nutriscore: null, lineTotal: 5 }, { name: 'C', nutriscore: 'a', lineTotal: null }]
-assert.deepEqual(sortProducts(sample, 'nutriscore').map(p => p.name), ['C', 'B', 'A'], 'best grade first, unknown last')
-assert.deepEqual(sortProducts(sample, 'nutriscore', true).map(p => p.name), ['B', 'C', 'A'], 'reversed, unknown still last')
+assert.deepEqual(sortProducts(sample, 'nutriscore').map(p => p.name), ['B', 'C', 'A'], 'grades needing attention first, unknown last')
+assert.deepEqual(sortProducts(sample, 'nutriscore', true).map(p => p.name), ['C', 'B', 'A'], 'reversed, unknown still last')
 assert.deepEqual(sortProducts(sample, 'price').map(p => p.name), ['A', 'B', 'C'])
 assert.deepEqual(sortProducts(sample, 'name').map(p => p.name), ['A', 'B', 'C'])
 assert.deepEqual(sortProducts(sample, 'receipt').map(p => p.name), ['B', 'A', 'C'])
@@ -72,5 +72,20 @@ assert.equal(distribution([], 'nova').known, 0)
 assert.equal(carbonTotal([]).kg, null)
 console.log('Basket analysis checks passed: deduplication, amount totals, category estimates, unknowns, allergens, sources and highlight reasons.')
 
-assert.equal(analyseProducts([{ barcode: code, off }], { [code]: { nutriscore_grade: 'unknown', nova_group: null, ecoscore_grade: 'unknown' } })[0].nutriscore, 'e', 'session grades work independently of detail fetches')
+assert.equal(analyseProducts([{ barcode: code, off }], { [code]: { nutriscore_grade: 'unknown', nova_group: null, ecoscore_grade: 'unknown' } })[0].nutriscore, null, 'unknown fetched grade does not fall back to stale session grade')
 assert.equal(analyseProducts([{ categoryTag: 'en:apples', off: { allergens_tags: ['en:milk'] } }, { categoryTag: 'en:fresh-apples' }]).length, 2, 'different analysis data is not merged')
+
+const corrected = analyseProducts([{ id: 'yogurt', name: 'Yogurt plain', barcode: code, off: { nutriscore_grade: 'c', nova_group: 3, ecoscore_grade: 'c' } }], { [code]: { product_name: 'Nutella', nutriscore_grade: 'e', nova_group: 4, ecoscore_grade: 'd' } })[0]
+assert.equal(corrected.name, 'Nutella')
+assert.deepEqual(corrected.names, ['Nutella'])
+assert.deepEqual(corrected.receiptNames, ['Yogurt plain'])
+assert.equal(corrected.itemId, 'yogurt')
+assert.equal(corrected.nutriscore, 'e')
+assert.equal(corrected.nova, '4')
+assert.equal(corrected.greenScore, 'd')
+assert.equal(analyseProducts([{ barcode: code, off }], { [code]: null })[0].nutriscore, null, 'not-found OFF response does not keep stale grades')
+for (const key of ['salt', 'sugars', 'fat']) {
+  const field = key + '_100g'
+  const sorted = sortProducts([{ name: 'Missing', nutrients: {} }, { name: 'Zero', nutrients: { [field]: 0 } }, { name: 'High', nutrients: { [field]: 20 } }], key)
+  assert.deepEqual(sorted.map(p => p.name), ['High', 'Zero', 'Missing'])
+}

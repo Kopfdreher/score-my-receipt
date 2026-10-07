@@ -595,6 +595,7 @@ export default {
   mounted() {
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
+    if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
   },
   unmounted() {
     if (this.locationSearchTimer) {

@@ -4,6 +4,8 @@ import mockReceipt from './data/mockReceipt'
 function emptyReceipt() {
   return {
     proofId: null,
+    analysisHistoryId: null,
+    analysisSnapshot: null,
     imagePreviewUrl: null,
     locationOsmId: null,
     locationOsmType: null,
@@ -30,6 +32,15 @@ export const useAppStore = defineStore('app', {
     getItems: (state) => state.receipt.items
   },
   actions: {
+    setAnalysisSnapshot(snapshot) {
+      this.receipt.analysisSnapshot = snapshot
+    },
+    setAnalysisHistoryId(id) {
+      this.receipt.analysisHistoryId = id
+    },
+    openSavedReceipt(entry) {
+      this.receipt = { ...emptyReceipt(), ...JSON.parse(JSON.stringify(entry.receipt)), status: 'ready', analysisHistoryId: entry.id, analysisSnapshot: { signature: entry.signature, products: entry.products } }
+    },
     signIn(data) {
       this.user.username = data['user_id']
       this.user.token = data['access_token']
@@ -43,6 +54,8 @@ export const useAppStore = defineStore('app', {
         ...emptyReceipt(),
         ...this.receipt,
         ...payload,
+        analysisHistoryId: null,
+        analysisSnapshot: null,
         items: payload.items || this.receipt.items
       }
     },
