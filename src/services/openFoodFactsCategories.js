@@ -44,7 +44,6 @@ export default {
       } else if (haystack.includes(needle)) {
         contains.push(item)
       }
-      if (startsWith.length + contains.length >= limit) break
     }
     return startsWith.concat(contains).slice(0, limit)
   }

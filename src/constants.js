@@ -23,13 +23,15 @@ export default {
   PROOF_TYPE_RECEIPT,
   PRICE_TYPE_PRODUCT: 'PRODUCT',
   PRICE_TYPE_CATEGORY: 'CATEGORY',
-  QUANTITY_UNIT_OPTIONS: [
-    { title: 'pcs', value: 'pcs' },
-    { title: 'pack', value: 'pack' },
-    { title: 'kg', value: 'kg' },
-    { title: 'g', value: 'g' },
-    { title: 'L', value: 'L' },
-    { title: 'ml', value: 'ml' }
+  // Fallback when Intl.supportedValuesOf('currency') is unavailable.
+  CURRENCY_OPTIONS: [
+    'EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'ISK', 'PLN', 'CZK', 'HUF',
+    'RON', 'BGN', 'RSD', 'UAH', 'TRY', 'RUB', 'ALL', 'MKD', 'BAM', 'MDL', 'GEL',
+    'CAD', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'UYU', 'BOB', 'PYG', 'CRC',
+    'AUD', 'NZD', 'JPY', 'CNY', 'KRW', 'INR', 'IDR', 'THB', 'VND', 'MYR', 'SGD',
+    'PHP', 'HKD', 'TWD', 'PKR', 'BDT', 'LKR', 'NPR', 'KHR', 'LAK', 'MMK',
+    'ZAR', 'EGP', 'NGN', 'KES', 'GHS', 'MAD', 'TND', 'DZD', 'XOF', 'XAF', 'ETB',
+    'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'ILS', 'JOD', 'LBP', 'IQD', 'IRR'
   ],
   OSM_NAME: 'OpenStreetMap',
   OSM_URL: 'https://www.openstreetmap.org',
