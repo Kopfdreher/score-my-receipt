@@ -7,7 +7,14 @@ export default defineConfig({
   plugins: [vue(), basicSsl()],
   server: {
     host: true,
-    https: true
+    https: true,
+    proxy: {
+      '/search-api': {
+        target: 'https://search.openfoodfacts.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/search-api/, '')
+      }
+    }
   },
   resolve: {
     alias: {

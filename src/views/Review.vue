@@ -539,7 +539,19 @@ export default {
       return receipt !== matched && !receipt.includes(matched) && !matched.includes(receipt)
     },
     categoryOptions() {
-      return constants.PRODUCT_CATEGORY_OPTIONS
+      const base = constants.PRODUCT_CATEGORY_OPTIONS
+      const known = new Set(base.map((option) => option.value))
+      const extra = []
+      this.items.forEach((item) => {
+        const tag = item.categoryTag
+        if (!tag || known.has(tag)) return
+        if (extra.some((option) => option.value === tag)) return
+        extra.push({
+          title: this.categoryTitle(tag),
+          value: tag
+        })
+      })
+      return extra.length ? base.concat(extra) : base
     },
     showPreviewBarcodeEdit() {
       if (!this.previewItem) return false
@@ -603,6 +615,14 @@ export default {
     }
   },
   methods: {
+    categoryTitle(tag) {
+      return String(tag || '')
+        .replace(/^en:/, '')
+        .split('-')
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+    },
     ensureReceipt() {
       if (this.$route.query.mock === '1') {
         this.appStore.loadMockReceipt()
