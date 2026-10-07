@@ -4,6 +4,7 @@
     :class="`score-badge--${size}`"
     :style="{ background: color, color: textColor }"
     :aria-label="ariaLabel"
+    :title="ariaLabel"
   >
     {{ label }}
   </span>
@@ -46,8 +47,14 @@ export default {
       if (this.value === null) return '?'
       return this.value === 'a-plus' ? 'A+' : String(this.value).toUpperCase()
     },
+    // Meaning of the grade in words, so the badge is understandable without its color
+    meaning() {
+      if (this.value === null) return this.$t('score.meaning.unknown')
+      const key = this.value === 'a-plus' ? 'aPlus' : String(this.value)
+      return this.$t(`score.meaning.${this.kind}.${key}`)
+    },
     ariaLabel() {
-      return `${this.$t(`score.${this.kind}`)} ${this.label}`
+      return `${this.$t(`score.${this.kind}`)} ${this.label}: ${this.meaning}`
     }
   }
 }

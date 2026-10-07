@@ -83,7 +83,7 @@
     "additivesRisk": "{high} high risk · {moderate} moderate risk",
     "risk": {
       "high": "High risk",
-      "moderate": "Moderate",
+      "moderate": "Moderate risk",
       "no": "No risk",
       "unknown": "Not evaluated"
     },
@@ -105,7 +105,63 @@
     "organic": "Organic",
     "fairTrade": "Fair trade",
     "labelCount": "{count} of {total} items",
-    "retry": "Retry"
+    "retry": "Retry",
+    "meaning": {
+      "nutriscore": {
+        "a": "Best nutritional quality",
+        "b": "Good nutritional quality",
+        "c": "Average nutritional quality",
+        "d": "Poor nutritional quality",
+        "e": "Lowest nutritional quality"
+      },
+      "nova": {
+        "1": "Unprocessed or minimally processed",
+        "2": "Processed culinary ingredient",
+        "3": "Processed food",
+        "4": "Ultra-processed food"
+      },
+      "greenScore": {
+        "aPlus": "Very low environmental impact",
+        "a": "Very low environmental impact",
+        "b": "Low environmental impact",
+        "c": "Moderate environmental impact",
+        "d": "High environmental impact",
+        "e": "Very high environmental impact",
+        "f": "Very high environmental impact"
+      },
+      "global": {
+        "a": "Excellent choice",
+        "b": "Good choice",
+        "c": "Average choice",
+        "d": "Poor choice",
+        "e": "Choice worth swapping"
+      },
+      "unknown": "Not rated: no data for this product"
+    },
+    "summary": {
+      "units": "Most of your items are {grade} ({meaning}): {percent}.",
+      "spend": "Most of your spending goes to {grade} ({meaning}): {percent}.",
+      "none": "None of your items has a rating in this category."
+    },
+    "chartDescription": "{title}: {details}",
+    "itemsLegend": "Each item shows three badges: Nutri-Score (A to E), NOVA (1 to 4) and Green-Score (A+ to F). A question mark means the product is not rated.",
+    "showMore": "+{count} more",
+    "showLess": "Show less",
+    "scaleLabel": "{title} of your basket: {grade} ({meaning})",
+    "scaleNone": "{title} of your basket: not enough data",
+    "legend": "Legend",
+    "additivesFoundIn": "different additives, found in {count} of {total} products",
+    "additivesLevelCount": "{count} {level}",
+    "additivesIn": "In:",
+    "additivesShowAll": "Show all {count} additives",
+    "additivesNone": "No additives found in the products we could check.",
+    "additivesNoDetails": "Product details are not loaded yet.",
+    "riskMeaning": {
+      "high": "the European Food Safety Authority (EFSA) found a risk of eating too much of it",
+      "moderate": "EFSA found a moderate risk of eating too much of it",
+      "no": "EFSA evaluated it and found no risk of overexposure",
+      "unknown": "no EFSA overexposure evaluation available yet"
+    }
   },
   "auth": {
     "signedInAs": "Signed in as {username}",

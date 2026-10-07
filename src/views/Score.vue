@@ -182,38 +182,12 @@
             :mode="mode"
             :currency="score.currency"
           />
-          <section class="score__card">
-            <h3 class="score__card-title">
-              {{ $t('score.additivesTitle') }}
-            </h3>
-            <p class="score__stat">
-              {{ details.additives.total }}
-            </p>
-            <p class="score__muted">
-              {{ $t('score.additivesRisk', { high: details.additives.high, moderate: details.additives.moderate }) }}
-            </p>
-            <ul
-              v-if="details.additives.top.length"
-              class="score__rows"
-            >
-              <li
-                v-for="additive in details.additives.top"
-                :key="additive.tag"
-              >
-                <span>{{ additive.name }}</span>
-                <span
-                  class="score__risk"
-                  :class="`score__risk--${additive.risk}`"
-                >
-                  {{ $t(`score.risk.${additive.risk}`) }}
-                </span>
-              </li>
-            </ul>
+          <AdditivesCard :additives="details.additives">
             <p class="score__muted score__card-foot">
               {{ $t('score.ultraProcessedLine', { share: formatPercent(score.ultraProcessedShare) }) }}
               · {{ $t('score.knownOn', { known: details.knownItems, total: details.itemCount }) }}
             </p>
-          </section>
+          </AdditivesCard>
         </div>
 
         <!-- Environment -->
@@ -378,6 +352,9 @@
         <h2 class="score__section-title">
           {{ $t('score.sections.items') }}
         </h2>
+        <p class="score__muted score__items-legend">
+          {{ $t('score.itemsLegend') }}
+        </p>
         <ul class="score__items">
           <li
             v-for="item in cleanedItems"
@@ -444,6 +421,7 @@ import { cleanItems, computeBasketDetails, computeScore } from '@/utils/score'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import ScoreBadge from '@/components/ScoreBadge.vue'
 import CategoryChart from '@/components/CategoryChart.vue'
+import AdditivesCard from '@/components/AdditivesCard.vue'
 
 // Same thresholds as the global mark in utils/score.js
 const LETTER_THRESHOLDS = [[80, 'a'], [60, 'b'], [40, 'c'], [20, 'd'], [0, 'e']]
@@ -453,7 +431,8 @@ export default {
   components: {
     UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')),
     ScoreBadge,
-    CategoryChart
+    CategoryChart,
+    AdditivesCard
   },
   data() {
     return {
@@ -714,26 +693,9 @@ export default {
   white-space: nowrap;
 }
 
-.score__risk {
-  flex: none;
-  padding: 0.1rem 0.5rem;
-  border-radius: 1rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: rgba(158, 158, 158, 0.25);
-}
 
-.score__risk--high {
-  background: rgba(230, 62, 17, 0.35);
-}
 
-.score__risk--moderate {
-  background: rgba(238, 129, 0, 0.35);
-}
 
-.score__risk--no {
-  background: rgba(3, 129, 65, 0.4);
-}
 
 .score__bars li {
   display: grid;
@@ -829,6 +791,10 @@ export default {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.35rem 0;
+}
+
+.score__items-legend {
+  margin: 0 0 0.5rem;
 }
 
 .score__item {

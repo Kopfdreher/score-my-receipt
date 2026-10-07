@@ -122,9 +122,20 @@ function categoryChart(items, grades, key, colors) {
   const totalSpend = sum(priced, (item) => item.lineTotal)
 
   const segment = (gradeKey, label, color, matches) => {
-    const units = sum(items.filter(matches), (item) => item.quantity)
+    const inGrade = items.filter(matches)
+    const units = sum(inGrade, (item) => item.quantity)
     const spend = sum(priced.filter(matches), (item) => item.lineTotal)
-    return { key: gradeKey, label, color, units, share: ratio(units, totalUnits), spend, spendShare: ratio(spend, totalSpend) }
+    return {
+      key: gradeKey,
+      label,
+      color,
+      units,
+      share: ratio(units, totalUnits),
+      spend,
+      spendShare: ratio(spend, totalSpend),
+      // which products have this grade
+      items: inGrade.map((item) => ({ id: item.id, name: item.name, quantity: item.quantity }))
+    }
   }
 
   const segments = grades.map((grade) => segment(grade, gradeLabel(grade), colors[grade], (item) => item[key] === grade))
@@ -243,19 +254,22 @@ export function computeBasketDetails(items, products = {}) {
     }
   }
 
-  // Additives: distinct additives of the basket, riskiest and most frequent first
-  const additiveCounts = {}
-  for (const { product } of lines) {
-    for (const tag of new Set(product.additives_tags || [])) additiveCounts[tag] = (additiveCounts[tag] || 0) + 1
+  // Additives: distinct additives of the basket, with the products that contain them,
+  // riskiest and most frequent first
+  const additiveProducts = {}
+  for (const { item, product } of lines) {
+    for (const tag of new Set(product.additives_tags || [])) {
+      additiveProducts[tag] = [...(additiveProducts[tag] || []), { id: item.id, name: item.name, quantity: item.quantity }]
+    }
   }
-  const additives = Object.entries(additiveCounts)
-    .map(([tag, products]) => ({
-      tag,
-      name: ADDITIVES[tag]?.name || tag.replace(/^en:/, '').toUpperCase(),
-      risk: ADDITIVES[tag]?.risk || 'unknown',
-      products
-    }))
-    .sort((a, b) => ADDITIVE_RISK_ORDER[a.risk] - ADDITIVE_RISK_ORDER[b.risk] || b.products - a.products)
+  const additives = Object.entries(additiveProducts)
+    .map(([tag, products]) => {
+      // "E338 - Phosphoric acid" -> code "E338", label "Phosphoric acid"
+      const [code, ...label] = (ADDITIVES[tag]?.name || tag.replace(/^en:/, '').toUpperCase()).split(' - ')
+      return { tag, code, label: label.join(' - ') || null, risk: ADDITIVES[tag]?.risk || 'unknown', products }
+    })
+    .sort((a, b) => ADDITIVE_RISK_ORDER[a.risk] - ADDITIVE_RISK_ORDER[b.risk] || b.products.length - a.products.length)
+  const withAdditives = lines.filter(({ product }) => (product.additives_tags || []).length)
 
   // CO₂: kg CO₂e per kg (Agribalyse) x kg bought, with its breakdown by step
   const withCo2 = lines.filter(({ grams, product }) => grams !== null && Number.isFinite(product.ecoscore_data?.agribalyse?.co2_total))
@@ -280,7 +294,12 @@ export function computeBasketDetails(items, products = {}) {
       total: additives.length,
       high: additives.filter((a) => a.risk === 'high').length,
       moderate: additives.filter((a) => a.risk === 'moderate').length,
-      top: additives.slice(0, TOP_ADDITIVES)
+      no: additives.filter((a) => a.risk === 'no').length,
+      unknown: additives.filter((a) => a.risk === 'unknown').length,
+      list: additives,
+      top: additives.slice(0, TOP_ADDITIVES),
+      productsWithAdditives: withAdditives.length, // distinct products containing at least one additive
+      productsChecked: lines.length // distinct products found on Open Food Facts
     },
     co2: {
       kg: withCo2.length ? sum(withCo2, ({ grams, product }) => product.ecoscore_data.agribalyse.co2_total * grams / 1000) : null,
