@@ -1,3 +1,5 @@
+import { receiptSignature } from './receiptHistory'
+
 const DB_NAME = 'score-my-receipt-history'
 const DB_VERSION = 1
 const STORE = 'receipts'
@@ -61,6 +63,8 @@ function cloneItems(items = []) {
     name: item.name || '',
     price: item.price ?? null,
     quantity: item.quantity ?? 1,
+    weight: item.weight ?? null,
+    weightUnit: item.weightUnit ?? null,
     barcode: item.barcode ?? null,
     categoryTag: item.categoryTag ?? null,
     off: item.off ? { ...item.off } : null,
@@ -85,6 +89,9 @@ function blobFromUrl(url) {
 
 function summarize(record) {
   if (!record) return null
+  const prices = record.analysisSnapshot
+    ? record.analysisSnapshot.products.filter(product => product.lineTotal !== null).map(product => product.lineTotal)
+    : (record.items || []).filter(item => typeof item.price === 'number').map(item => item.price * (item.quantity || 1))
   return {
     id: record.id,
     status: record.status,
@@ -94,7 +101,8 @@ function summarize(record) {
     date: record.date,
     currency: record.currency,
     locationName: record.locationName,
-    itemCount: Array.isArray(record.items) ? record.items.length : 0,
+    itemCount: record.analysisSnapshot?.products.length ?? (Array.isArray(record.items) ? record.items.length : 0),
+    totalSpent: prices.length ? prices.reduce((sum, price) => sum + price, 0) : null,
     hasImage: Boolean(record.image)
   }
 }
@@ -136,12 +144,15 @@ export default {
     receipt,
     items,
     image,
-    createdAt
+    createdAt,
+    analysisSnapshot
   }) {
     const now = new Date().toISOString()
+    const snapshot = analysisSnapshot?.signature === receiptSignature(receipt) ? analysisSnapshot : null
     return {
       id: id || `history-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      status,
+      status: status === 'scored' && !snapshot ? 'draft' : status,
+      analysisSnapshot: snapshot ? JSON.parse(JSON.stringify(snapshot)) : null,
       createdAt: createdAt || now,
       updatedAt: now,
       proofId: receipt.proofId ?? null,

@@ -6,6 +6,7 @@ function emptyReceipt() {
   return {
     historyId: null,
     proofId: null,
+    analysisSnapshot: null,
     imagePreviewUrl: null,
     locationOsmId: null,
     locationOsmType: null,
@@ -46,6 +47,9 @@ export const useAppStore = defineStore('app', {
     getHistorySummaries: (state) => state.historySummaries
   },
   actions: {
+    setAnalysisSnapshot(snapshot) {
+      this.receipt.analysisSnapshot = snapshot
+    },
     signIn(data) {
       this.user.username = data['user_id']
       this.user.token = data['access_token']
@@ -63,6 +67,7 @@ export const useAppStore = defineStore('app', {
         ...emptyReceipt(),
         ...this.receipt,
         ...payload,
+        analysisSnapshot: null,
         historyId: payload.historyId ?? null,
         sentPriceKeys: itemsReplaced ? [] : (this.receipt.sentPriceKeys || []),
         items: payload.items || this.receipt.items
@@ -152,7 +157,7 @@ export const useAppStore = defineStore('app', {
           return []
         })
     },
-    saveReceiptToHistory(status) {
+    saveReceiptToHistory(status, analysisSnapshot = this.receipt.analysisSnapshot) {
       const existingId = this.receipt.historyId
       const createdAtPromise = existingId
         ? receiptHistoryDb.get(existingId).then((row) => row?.createdAt || null)
@@ -168,12 +173,14 @@ export const useAppStore = defineStore('app', {
             receipt: this.receipt,
             items: this.receipt.items,
             image,
-            createdAt
+            createdAt,
+            analysisSnapshot
           })
           return receiptHistoryDb.put(record).then(() => record)
         })
         .then((record) => {
           this.receipt.historyId = record.id
+          this.receipt.analysisSnapshot = record.analysisSnapshot
           return this.refreshHistorySummaries().then(() => record)
         })
     },
@@ -188,6 +195,7 @@ export const useAppStore = defineStore('app', {
           this.receipt = {
             ...emptyReceipt(),
             historyId: record.id,
+            analysisSnapshot: record.analysisSnapshot || null,
             proofId: record.proofId,
             imagePreviewUrl,
             locationOsmId: record.locationOsmId,

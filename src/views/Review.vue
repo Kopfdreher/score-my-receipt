@@ -820,6 +820,7 @@ export default {
       && window.matchMedia('(min-width: 960px)').matches
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
+    if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
   },
   unmounted() {
     if (this.locationSearchTimer) {

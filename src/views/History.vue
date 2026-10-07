@@ -93,7 +93,7 @@
             <p class="history__card-meta">
               {{ $t('history.cardMeta', {
                 count: entry.itemCount,
-                currency: entry.currency || '—',
+                amount: formatSpent(entry),
                 date: entry.date || $t('history.noReceiptDate')
               }) }}
             </p>
@@ -191,6 +191,10 @@ export default {
       if (entry.locationName) return entry.locationName
       if (entry.date) return this.$t('history.untitledDated', { date: entry.date })
       return this.$t('history.untitled')
+    },
+    formatSpent(entry) {
+      if (entry.totalSpent === null) return this.$t('score.noData')
+      return new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: entry.currency || 'EUR' }).format(entry.totalSpent)
     },
     formatWhen(value) {
       if (!value) return '—'
