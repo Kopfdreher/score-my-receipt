@@ -1,12 +1,25 @@
 <template>
   <v-app class="app-shell">
+    <div v-if="showTopNav" class="app-topnav">
+      <UserSessionBar />
+    </div>
     <router-view />
   </v-app>
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
+
 export default {
-  name: 'App'
+  name: 'App',
+  components: {
+    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue'))
+  },
+  computed: {
+    showTopNav() {
+      return this.$route.name !== 'sign-in'
+    }
+  }
 }
 </script>
 
@@ -70,6 +83,11 @@ body {
   padding-left: var(--safe-left);
 }
 
+/* Page roots must keep their natural height so the wrap scrolls instead of clipping them */
+.app-shell > .v-application__wrap > * {
+  flex-shrink: 0;
+}
+
 .app-shell > .v-application__wrap {
   min-height: 0 !important;
   height: 100% !important;
@@ -77,6 +95,22 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 0.55rem 0.65rem 0.4rem;
+  background: rgba(14, 36, 28, 0.92);
+  border-bottom: 1px solid rgba(232, 242, 230, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-sizing: border-box;
 }
 
 .d-sr-only {

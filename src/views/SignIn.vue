@@ -16,16 +16,10 @@
         <p class="sign-in__tagline">
           {{ $t('signIn.tagline') }}
         </p>
-        <p class="sign-in__detail">
-          {{ $t('signIn.detail') }}
-        </p>
       </section>
 
       <section class="sign-in__auth sign-in__reveal sign-in__reveal--2">
         <div class="sign-in__card">
-          <h2 class="sign-in__title">
-            {{ $t('signIn.title') }}
-          </h2>
           <p class="sign-in__support">
             {{ $t('signIn.support') }}
           </p>
@@ -231,10 +225,14 @@ export default {
   width: min(1120px, 100%);
   margin: 0 auto;
   padding: clamp(1.5rem, 4vw, 3rem);
+  padding-bottom: max(clamp(1.5rem, 4vw, 3rem), 2.5rem);
+  box-sizing: border-box;
 }
 
 .sign-in__intro {
   width: min(28rem, 100%);
+  margin: 0 auto;
+  text-align: center;
 }
 
 .sign-in__eyebrow {
@@ -256,25 +254,17 @@ export default {
 }
 
 .sign-in__tagline {
-  margin: 0 0 0.75rem;
+  margin: 0 auto;
   max-width: 28ch;
   font-size: 1.02rem;
   line-height: 1.45;
   color: rgba(247, 251, 244, 0.9);
 }
 
-.sign-in__detail {
-  margin: 0;
-  max-width: 34ch;
-  font-size: 0.9rem;
-  line-height: 1.55;
-  color: rgba(247, 251, 244, 0.7);
-}
-
 .sign-in__auth {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .sign-in__card {
@@ -286,14 +276,6 @@ export default {
   backdrop-filter: blur(12px);
   box-shadow: 0 22px 48px rgba(6, 18, 13, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.35);
-}
-
-.sign-in__title {
-  margin: 0 0 0.4rem;
-  font-family: var(--font-body, system-ui, sans-serif);
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #0E241C;
 }
 
 .sign-in__support {
@@ -402,14 +384,11 @@ export default {
 
 @media (min-width: 960px) {
   .sign-in__layout {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
+    justify-items: center;
     align-items: center;
-    gap: 3rem;
+    gap: 2rem;
     padding: clamp(3rem, 6vw, 5rem);
-  }
-
-  .sign-in__auth {
-    justify-content: flex-end;
   }
 
   .sign-in__card {

@@ -7,6 +7,7 @@ export default {
   APP_API_URL: `${import.meta.env.VITE_OPEN_PRICES_APP_URL}/api/docs`,
   OFF_API_URL: 'https://world.openfoodfacts.org/api/v2/product',
   OFF_PRODUCTS_URL: 'https://world.openfoodfacts.org/products',
+  OFF_SEARCH_URL: 'https://world.openfoodfacts.org/api/v2/search',
   OFF_PRODUCT_FIELDS: [
     'code',
     'product_name',
@@ -20,28 +21,17 @@ export default {
   ].join(','),
   OFF_SIGN_UP_URL: 'https://world.openfoodfacts.org/cgi/user.pl',
   PROOF_TYPE_RECEIPT,
-  // Common Open Prices / OFF categories for loose items without barcodes.
-  PRODUCT_CATEGORY_OPTIONS: [
-    { title: 'Apples', value: 'en:apples' },
-    { title: 'Bananas', value: 'en:bananas' },
-    { title: 'Oranges', value: 'en:oranges' },
-    { title: 'Lemons', value: 'en:lemons' },
-    { title: 'Tomatoes', value: 'en:tomatoes' },
-    { title: 'Potatoes', value: 'en:potatoes' },
-    { title: 'Onions', value: 'en:onions' },
-    { title: 'Carrots', value: 'en:carrots' },
-    { title: 'Cucumbers', value: 'en:cucumbers' },
-    { title: 'Lettuce', value: 'en:lettuce' },
-    { title: 'Bread', value: 'en:breads' },
-    { title: 'Croissants', value: 'en:croissants' },
-    { title: 'Eggs', value: 'en:eggs' },
-    { title: 'Chicken', value: 'en:chickens' },
-    { title: 'Beef', value: 'en:beef' },
-    { title: 'Pork', value: 'en:pork' },
-    { title: 'Fish', value: 'en:fishes' },
-    { title: 'Cheese', value: 'en:cheeses' },
-    { title: 'Other fruits', value: 'en:fruits' },
-    { title: 'Other vegetables', value: 'en:vegetables' }
+  PRICE_TYPE_PRODUCT: 'PRODUCT',
+  PRICE_TYPE_CATEGORY: 'CATEGORY',
+  // Fallback when Intl.supportedValuesOf('currency') is unavailable.
+  CURRENCY_OPTIONS: [
+    'EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'ISK', 'PLN', 'CZK', 'HUF',
+    'RON', 'BGN', 'RSD', 'UAH', 'TRY', 'RUB', 'ALL', 'MKD', 'BAM', 'MDL', 'GEL',
+    'CAD', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'UYU', 'BOB', 'PYG', 'CRC',
+    'AUD', 'NZD', 'JPY', 'CNY', 'KRW', 'INR', 'IDR', 'THB', 'VND', 'MYR', 'SGD',
+    'PHP', 'HKD', 'TWD', 'PKR', 'BDT', 'LKR', 'NPR', 'KHR', 'LAK', 'MMK',
+    'ZAR', 'EGP', 'NGN', 'KES', 'GHS', 'MAD', 'TND', 'DZD', 'XOF', 'XAF', 'ETB',
+    'AED', 'SAR', 'QAR', 'KWD', 'BHD', 'OMR', 'ILS', 'JOD', 'LBP', 'IQD', 'IRR'
   ],
   OSM_NAME: 'OpenStreetMap',
   OSM_URL: 'https://www.openstreetmap.org',

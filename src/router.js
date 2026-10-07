@@ -34,6 +34,11 @@ const router = createRouter({
       path: '/score',
       name: 'score',
       component: defineAsyncComponent(() => import('@/views/Score.vue'))
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: defineAsyncComponent(() => import('@/views/History.vue'))
     }
   ]
 })
