@@ -50,7 +50,6 @@
 
 <script>
 import { useAppStore } from '@/store'
-import constants from '@/constants'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import openPricesApi from '@/services/openPricesApi'
 
@@ -198,10 +197,6 @@ export default {
       if (kept) {
         return Promise.resolve({ ...item, barcode: null, categoryTag: kept })
       }
-      const fromList = this.categoryFromName(item.name)
-      if (fromList) {
-        return Promise.resolve({ ...item, barcode: null, categoryTag: fromList })
-      }
       return openFoodFactsApi.suggestCategoryTag(item.name)
         .then((tag) => {
           const categoryTag = tag || (match && match.categoryTag) || null
@@ -219,14 +214,6 @@ export default {
     },
     keptCategoryTag(tag) {
       return this.isGeminiCategory(tag) ? String(tag).trim() : null
-    },
-    categoryFromName(name) {
-      const haystack = String(name || '').toLowerCase()
-      if (!haystack) return null
-      const match = constants.PRODUCT_CATEGORY_OPTIONS.find((option) => (
-        haystack.includes(option.title.toLowerCase())
-      ))
-      return match ? match.value : null
     },
     localDate() {
       const now = new Date()

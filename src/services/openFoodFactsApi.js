@@ -236,8 +236,7 @@ export default {
     })
 
     return fetch(`${TAXONOMY_SUGGEST_URL}?${params}`, {
-      method: 'GET',
-      headers: OP_DEFAULT_HEADERS
+      method: 'GET'
     })
       .then((response) => {
         if (!response.ok) {
