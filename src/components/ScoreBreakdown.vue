@@ -34,16 +34,16 @@ export default {
     note: { type: String, default: '' },
     // number of products for which this figure is unknown
     missing: { type: Number, default: 0 },
-    color: { type: String, default: '#007aff' }
+    color: { type: String, default: '#245b3f' }
   }
 }
 </script>
 
 <style scoped>
 .score-breakdown { padding: 0.25rem 0 0; }
-.score-breakdown__note { margin: 0 0 0.25rem; color: #3c3c43; font-size: 0.9rem; line-height: 1.4; }
-.score-breakdown__value { display: grid; grid-template-columns: minmax(3rem, 7rem) auto; align-items: center; gap: 0.6rem; margin-top: 0.3rem; color: #6e6e73; font-size: 0.85rem; }
-.score-breakdown__bar { height: 0.4rem; border-radius: 1rem; background: #e5e5ea; overflow: hidden; }
+.score-breakdown__note { margin: 0 0 0.25rem; color: var(--score-ink, #17382a); font-size: 0.9rem; line-height: 1.4; }
+.score-breakdown__value { display: grid; grid-template-columns: minmax(3rem, 7rem) auto; align-items: center; gap: 0.6rem; margin-top: 0.3rem; color: var(--score-muted, #526156); font-size: 0.85rem; }
+.score-breakdown__bar { height: 0.4rem; border-radius: 1rem; background: var(--score-rule, #d8ded2); overflow: hidden; }
 .score-breakdown__bar span { display: block; height: 100%; }
-.score-breakdown__missing { margin: 0.5rem 0 0; color: #6e6e73; font-size: 0.8rem; }
+.score-breakdown__missing { margin: 0.5rem 0 0; color: var(--score-muted, #526156); font-size: 0.8rem; }
 </style>

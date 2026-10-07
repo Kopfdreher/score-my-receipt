@@ -30,6 +30,7 @@
             <h2>{{ ring.title }}</h2>
             <p>{{ $t(`score.ui.rings.caption.${ring.kind}`) }}</p>
           </div>
+          <InfoTip :title="ring.title" :text="$t('score.ui.rings.calculation')" />
         </header>
 
         <!-- One arc per grade, only for rated products; the center shows the share of good grades -->
@@ -54,12 +55,9 @@
         <p class="score-rings__verdict">
           {{ ring.rated ? $t('score.ui.rings.verdict', { good: ring.good, rated: ring.rated }) : $t('score.ui.rings.noGrade') }}
         </p>
-        <p v-if="ring.trend" class="score-rings__trend" :class="`score-rings__trend--${ring.trend.direction}`">
-          <v-icon :icon="trendIcons[ring.trend.direction]" size="16" />{{ $t(`score.ui.rings.trend.${ring.trend.direction}`, { points: ring.trend.points, date: previousDate }) }}
-        </p>
         <ul class="score-rings__grades">
-          <li v-for="segment in ring.segments" :key="segment.key" :class="{ 'score-rings__grade--empty': !segment.count }">
-            <span :style="{ background: segment.color, color: darkText(segment.key) ? '#16181a' : '#fff' }">{{ segment.label }}</span>
+          <li v-for="segment in ring.segments.filter(segment => segment.count)" :key="segment.key">
+            <span :style="{ background: segment.color, color: gradeTextColor(segment.color) }">{{ segment.label }}</span>
             {{ segment.count }}
           </li>
         </ul>
@@ -95,29 +93,28 @@
 </template>
 
 <script>
+import InfoTip from './InfoTip.vue'
 const RADIUS = 50
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 const GAP = 3 // space between two arcs, in the same unit as the circumference
 // Grades counted as "good" in the center of each ring
-const GOOD = { nutriscore: ['a', 'b'], nova: ['1', '2'], greenScore: ['a-plus', 'a', 'b'] }
-const ACCENTS = { nutriscore: '#ff2d55', nova: '#ff9500', greenScore: '#248a3d' }
-const ICONS = { nutriscore: 'mdi-heart-outline', nova: 'mdi-factory', greenScore: 'mdi-leaf' }
+const GOOD = { nutriscore: ['a', 'b'], nova: ['1', '2'], greenScore: ['a-plus', 'a', 'b'], forest: ['a', 'b'] }
+const ACCENTS = { nutriscore: '#245b3f', nova: '#703b12', greenScore: '#245b3f', forest: '#245b3f' }
+const ICONS = { nutriscore: 'mdi-heart-outline', nova: 'mdi-factory', greenScore: 'mdi-leaf', forest: 'mdi-forest' }
 
 export default {
   name: 'ScoreRings',
+  components: { InfoTip },
   props: {
-    // { nutriscore, nova, greenScore }: results of distribution() from basketAnalysis
+    // { nutriscore, nova, greenScore, forest }: results of distribution() from basketAnalysis
     charts: { type: Object, required: true },
     titles: { type: Object, required: true },
-    // Same charts for the last saved receipt, to show the trend (null on a first receipt)
-    previous: { type: Object, default: null },
-    previousDate: { type: String, default: '' },
     // ring whose details are unfolded under the carousel
     openKind: { type: String, default: null }
   },
   emits: ['details'],
   data() {
-    return { radius: RADIUS, active: 0, settleTimer: null, dragging: false, dragStart: null, trendIcons: { up: 'mdi-arrow-up', down: 'mdi-arrow-down', same: 'mdi-equal' } }
+    return { radius: RADIUS, active: 0, settleTimer: null, dragging: false, dragStart: null }
   },
   computed: {
     loopRings() {
@@ -136,7 +133,7 @@ export default {
         const rated = segments.reduce((sum, s) => sum + s.count, 0)
         const good = segments.filter((s) => GOOD[kind].includes(s.key)).reduce((sum, s) => sum + s.count, 0)
         const goodShare = rated ? good / rated : 0
-        return { kind, title: this.titles[kind], icon: ICONS[kind], accent: ACCENTS[kind], segments, rated, good, goodShare, trend: this.trendOf(kind, rated, goodShare), total: chart.total, arcs: this.arcsOf(segments, rated) }
+        return { kind, title: this.titles[kind], icon: ICONS[kind], accent: ACCENTS[kind], segments, rated, good, goodShare, total: chart.total, arcs: this.arcsOf(segments, rated) }
       })
     }
   },
@@ -162,22 +159,18 @@ export default {
         return arc
       })
     },
-    // Share of good grades compared with the last receipt, in percentage points
-    trendOf(kind, rated, goodShare) {
-      const before = this.previous?.[kind]
-      if (!before || !rated) return null
-      const ratedBefore = before.segments.filter((s) => s.key !== 'unknown').reduce((sum, s) => sum + s.count, 0)
-      if (!ratedBefore) return null
-      const goodBefore = before.segments.filter((s) => GOOD[kind].includes(s.key)).reduce((sum, s) => sum + s.count, 0) / ratedBefore
-      const points = Math.round((goodShare - goodBefore) * 100)
-      return { points: Math.abs(points), direction: points > 0 ? 'up' : points < 0 ? 'down' : 'same' }
-    },
     ringLabel(ring) {
       if (!ring.rated) return `${ring.title}: ${this.$t('score.ui.rings.noGrade')}`
       const grades = ring.segments.filter((s) => s.count).map((s) => `${s.label} ${s.count}`).join(', ')
       return `${ring.title}: ${this.formatPercent(ring.goodShare)} ${this.$t(`score.ui.rings.good.${ring.kind}`)}. ${grades}`
     },
-    darkText(key) { return ['b', 'c', '2'].includes(key) },
+    gradeTextColor(color) {
+      const rgb = color.slice(1).match(/../g).map(hex => {
+        const value = parseInt(hex, 16) / 255
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+      })
+      return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 > 0.179 ? '#111111' : '#ffffff'
+    },
     formatPercent(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 0 }).format(value) },
     slideWidth() {
       const slide = this.$refs.track?.firstElementChild
@@ -248,7 +241,7 @@ export default {
   outline: none;
 }
 .score-rings__track::-webkit-scrollbar { display: none; }
-.score-rings__track:focus-visible { outline: 2px solid #007aff; outline-offset: 4px; border-radius: 1.5rem; }
+.score-rings__track:focus-visible { outline: 3px solid var(--score-focus, #174f78); outline-offset: 4px; border-radius: 1.5rem; }
 .score-rings__track--dragging { scroll-snap-type: none; cursor: grabbing; user-select: none; }
 
 .score-rings__slide {
@@ -258,45 +251,41 @@ export default {
   gap: 0.75rem;
   padding: 1.5rem 1.25rem 1.25rem;
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--score-surface, #fffdf8);
   scroll-snap-align: start;
   text-align: center;
 }
 .score-rings__head { display: flex; align-items: center; gap: 0.6rem; align-self: stretch; text-align: left; }
-.score-rings__head .v-icon { padding: 1.1rem; border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.score-rings__head > .v-icon { padding: 1.1rem; border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.score-rings__head :deep(.info-tip) { margin-left: auto; }
 .score-rings__head h2 { margin: 0; color: var(--accent); font-size: 1.05rem; font-weight: 600; font-family: inherit; }
-.score-rings__head p { margin: 0; color: #6e6e73; font-size: 0.8rem; }
+.score-rings__head p { margin: 0; color: var(--score-muted, #526156); font-size: 0.8rem; }
 
 .score-rings__ring { width: min(13rem, 70vw); height: auto; }
-.score-rings__track-circle { fill: none; stroke: #e5e5ea; stroke-width: 10; }
+.score-rings__track-circle { fill: none; stroke: var(--score-rule, #d8ded2); stroke-width: 10; }
 .score-rings__arc { fill: none; stroke-width: 10; transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease; animation: score-rings-draw 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
 /* The ring turns into place: each arc grows from 12 o'clock to its final position */
 @keyframes score-rings-draw { from { stroke-dasharray: 0 400; stroke-dashoffset: 0; } }
 .score-rings__value { fill: currentColor; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
-.score-rings__unit { fill: #6e6e73; font-size: 8.5px; }
+.score-rings__unit { fill: var(--score-muted, #526156); font-size: 8.5px; }
 
-.score-rings__trend { display: inline-flex; align-items: center; gap: 0.25rem; margin: -0.25rem 0 0; padding: 0.2rem 0.6rem; border-radius: 1rem; font-size: 0.8rem; font-weight: 600; }
-.score-rings__trend--up { color: #248a3d; background: #34c7591f; }
-.score-rings__trend--down { color: #d70015; background: #ff3b301a; }
-.score-rings__trend--same { color: #6e6e73; background: #f2f2f7; }
 .score-rings__verdict { margin: 0; font-size: 0.95rem; font-weight: 500; }
 .score-rings__grades { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.4rem 0.75rem; margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
 .score-rings__grades li { display: flex; align-items: center; gap: 0.3rem; }
 .score-rings__grades span { min-width: 1.6rem; padding: 0.1rem 0.3rem; border-radius: 0.4rem; font-size: 0.75rem; font-weight: 700; }
-.score-rings__grade--empty { opacity: 0.35; }
-.score-rings__coverage { margin: 0; color: #6e6e73; font-size: 0.75rem; }
-.score-rings__details { display: inline-flex; align-items: center; gap: 0.1rem; margin-top: auto; padding: 0.35rem 0.6rem; border-radius: 0.6rem; color: #007aff; font-size: 0.9rem; font-weight: 500; }
-.score-rings__details:hover { background: #007aff14; }
+.score-rings__coverage { margin: 0; color: var(--score-muted, #526156); font-size: 0.75rem; }
+.score-rings__details { display: inline-flex; align-items: center; gap: 0.1rem; margin-top: auto; padding: 0.35rem 0.6rem; border-radius: 0.6rem; color: var(--score-accent, #245b3f); font-size: 0.9rem; font-weight: 500; }
+.score-rings__details:hover { background: var(--score-tint, #e8efe3); }
 
 .score-rings__nav { display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin-top: 0.85rem; }
-.score-rings__arrow { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: #ffffff; }
+.score-rings__arrow { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--score-surface, #fffdf8); }
 .score-rings__arrow:disabled { opacity: 0.3; cursor: default; }
 .score-rings__dots { display: flex; }
 .score-rings__dots button { display: grid; place-items: center; width: 1.5rem; height: 2.75rem; }
 .score-rings__dots button::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 1rem; background: #c7c7cc; transition: width 0.2s ease, background 0.2s ease; }
 .score-rings__dots .score-rings__dot--active { width: 2rem; }
 .score-rings__dots .score-rings__dot--active::before { width: 1.4rem; background: #3a3a3c; }
-button:focus-visible { outline: 2px solid #007aff; outline-offset: 3px; }
+button:focus-visible { outline: 3px solid var(--score-focus, #174f78); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   .score-rings__arc, .score-rings__dots button::before { transition: none; animation: none; }
 }

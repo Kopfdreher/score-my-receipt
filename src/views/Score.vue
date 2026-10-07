@@ -1,35 +1,28 @@
 <template>
   <main class="score">
-    <header class="score__header">
-      <p class="score__brand">
-        {{ $t('app.name') }}
-      </p>
-    </header>
     <div class="score__content">
       <div class="score__heading">
         <div>
           <p class="score__eyebrow">
-            {{ receiptDate || $t('score.ui.eyebrow') }}
+            <time v-if="receipt.date" :datetime="receipt.date">{{ receiptFullDate }}</time>
+            <span v-else>{{ $t('score.ui.unknownReceiptDate') }}</span>
           </p>
-          <h1>{{ $t('score.ui.title') }}</h1>
+          <h1>{{ receiptTitle }}</h1>
         </div>
         <div class="score__heading-tools">
-          <v-btn variant="text" color="#007aff" prepend-icon="mdi-history" :to="{ name: 'history' }">
-            {{ $t('score.ui.history.title') }}
-          </v-btn>
-          <InfoTip :title="$t('score.ui.title')" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
+          <InfoTip :title="receiptTitle" :text="$t('score.ui.basketInfo')" :sources="referenceSources" />
         </div>
       </div>
-      <v-alert v-if="storageError" type="warning" variant="tonal">
+      <v-alert v-if="storageError" type="warning" color="#703b12" variant="tonal">
         {{ $t('score.ui.history.error') }}
       </v-alert>
-      <v-alert v-if="isMock" class="score__alert" type="info" variant="tonal" density="compact">
+      <v-alert v-if="isMock" class="score__alert" type="info" color="#174f78" variant="tonal" density="compact">
         {{ $t('score.mockBanner') }}
       </v-alert>
       <div v-if="isLoading" class="score__state">
         <v-progress-circular indeterminate /><p>{{ $t('score.loading') }}</p>
       </div>
-      <v-alert v-else-if="receipt.status === 'error'" type="error" :title="$t('score.errorTitle')" :text="receipt.errorMessage || ''" />
+      <v-alert v-else-if="receipt.status === 'error'" type="error" color="#962e25" :title="$t('score.errorTitle')" :text="receipt.errorMessage || ''" />
       <template v-else-if="items.length">
         <p v-if="detailsStatus === 'loading'" class="score__status">
           <v-progress-circular indeterminate size="14" width="2" />{{ $t('score.detailsLoading') }}
@@ -40,21 +33,34 @@
           </button>
         </p>
 
-        <ScoreRings :charts="charts" :titles="ringTitles" :previous="previousCharts" :previous-date="previousDate" :open-kind="ringDetail" @details="kind => ringDetail = ringDetail === kind ? null : kind" />
+        <ScoreRings :charts="charts" :titles="ringTitles" :open-kind="ringDetail" @details="kind => ringDetail = ringDetail === kind ? null : kind" />
         <v-expand-transition>
           <div v-if="ringDetail" class="score__ring-detail">
-            <CategoryChart :kind="ringDetail" :title="ringTitles[ringDetail]" :info="$t(`score.ui.info.${ringDetail}`)" :chart="charts[ringDetail]" :sources="ringDetail === 'nova' ? novaSources : ringDetail === 'greenScore' ? greenSources : offSources" open-details />
+            <CategoryChart :key="ringDetail" :kind="ringDetail" :title="ringTitles[ringDetail]" :info="$t(`score.ui.info.${ringDetail}`)" :chart="charts[ringDetail]" :sources="ringDetail === 'nova' ? novaSources : ringDetail === 'greenScore' ? greenSources : ringDetail === 'forest' ? forestSources : offSources" open-details />
           </div>
         </v-expand-transition>
 
         <!-- Rows of key figures, like the Summary list of Apple Health; a tap unfolds the details in place -->
         <section class="score__glance" :aria-label="$t('score.ui.glance.title')">
-          <h2>{{ $t('score.ui.glance.title') }}</h2>
+          <div class="score__glance-heading">
+            <v-menu :close-on-content-click="false" location="bottom end">
+              <template #activator="{ props }">
+                <v-btn v-bind="props" icon="mdi-cog-outline" size="small" variant="text" :aria-label="$t('score.ui.glance.settings')" />
+              </template>
+              <div class="score__settings-panel">
+                <h3>{{ $t('score.ui.glance.settings') }}</h3>
+                <div class="score__choices">
+                  <label v-for="row in glance" :key="row.key"><input type="checkbox" :checked="!hiddenGlance.includes(row.key)" @change="toggleGlance(row.key)">{{ $t(`score.ui.glance.${row.key}`) }}</label>
+                </div>
+              </div>
+            </v-menu>
+          </div>
           <div class="score__glance-grid">
-            <template v-for="row in glance" :key="row.key">
-              <button type="button" class="score__glance-row" :class="{ 'score__glance-row--open': openGlance === row.key }" :style="{ '--accent': row.color }" :aria-expanded="openGlance === row.key" :aria-controls="`glance-${row.key}`" @click="openGlance = openGlance === row.key ? null : row.key">
+            <template v-for="row in visibleGlance" :key="row.key">
+              <button type="button" class="score__glance-row" :class="{ 'score__glance-row--open': openGlance === row.key, [`score__glance-row--${row.tone}`]: row.tone }" :style="{ '--accent': row.color }" :title="row.status || undefined" :aria-expanded="openGlance === row.key" :aria-controls="`glance-${row.key}`" @click="openGlance = openGlance === row.key ? null : row.key">
                 <span class="score__glance-head">
                   <v-icon :icon="row.icon" size="18" /><span class="score__glance-label">{{ $t(`score.ui.glance.${row.key}`) }}</span>
+                  <v-icon v-if="row.tone" :icon="row.tone === 'good' ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'" size="16" :aria-label="row.status" role="img" />
                   <span class="score__glance-meta">{{ $t('score.ui.glance.coverage', { known: row.known, total: products.length }) }}</span>
                   <v-icon icon="mdi-chevron-down" size="20" class="score__glance-chevron" />
                 </span>
@@ -63,258 +69,224 @@
               <v-expand-transition>
                 <div v-if="openGlance === row.key" :id="`glance-${row.key}`" class="score__glance-detail" :style="{ '--accent': row.color }">
                   <template v-if="row.key === 'additives'">
+                    <div class="score__card-heading">
+                      <p>{{ $t('score.ui.additivesFoundIn', additives.products) }}</p>
+                      <InfoTip :title="$t('score.additivesTitle')" :text="$t('score.ui.info.additives')" :sources="offSources" />
+                    </div>
+                    <AnalysisProductList :products="products.filter(product => product.additives?.length)">
+                      <template #default="{ product }">
+                        <p class="score__product-additives">
+                          {{ [...new Set(product.additives)].map(tag => additiveName(tag)).join(', ') }}
+                        </p>
+                      </template>
+                    </AnalysisProductList>
                     <p class="score__coverage">
-                      {{ $t('score.ui.breakdown.additives') }}
+                      {{ coverage(additives.known) }} · {{ $t('score.ui.withoutAdditives', { count: additives.without }) }}
                     </p>
-                    <details v-for="additive in additives.list" :key="additive.tag" class="score__nested">
-                      <summary>{{ additiveName(additive.tag) }} <span class="score__muted">· {{ $t('score.ui.productsCount', additive.items.length) }}</span></summary>
-                      <AnalysisProductList :products="additive.items" />
+                    <details v-if="additives.unknown" class="score__nested">
+                      <summary>{{ $t('score.ui.unknownAdditives', { count: additives.unknown }) }}</summary>
+                      <AnalysisProductList :products="products.filter(product => product.additives === null)" />
                     </details>
                   </template>
-                  <ScoreBreakdown v-else v-bind="glanceDetail" :color="row.color" />
+                  <template v-else-if="row.key === 'highlights'">
+                    <div class="score__settings-heading">
+                      <span class="score__muted">{{ coverage(highlightKnown) }}</span>
+                      <v-menu :close-on-content-click="false" location="bottom end">
+                        <template #activator="{ props }">
+                          <v-btn v-bind="props" icon="mdi-cog-outline" size="small" variant="text" :aria-label="$t('score.ui.nutrientSettings')" @click.stop @keydown.stop />
+                        </template>
+                        <div class="score__settings-panel">
+                          <div class="score__card-heading">
+                            <h3>{{ $t('score.ui.nutrientFilters') }}</h3>
+                            <InfoTip :title="$t('score.ui.nutrientFilters')" :text="$t('score.ui.info.highNutrients')" :sources="nutrientSources" />
+                          </div>
+                          <div class="score__choices">
+                            <label v-for="key in ['sugars', 'salt', 'fat']" :key="key"><input v-model="selectedNutrients" type="checkbox" :value="key">{{ $t(`score.ui.high.${key}`) }}</label>
+                          </div>
+                          <p v-for="key in selectedNutrients" :key="key" class="score__coverage">
+                            {{ $t(`score.ui.high.${key}`) }} · {{ coverage(products.filter(p => ['low', 'moderate', 'high'].includes(p.nutrientLevels[key])).length) }}
+                          </p>
+                          <p class="score__coverage">
+                            {{ $t('score.ui.remembered') }}
+                          </p>
+                        </div>
+                      </v-menu>
+                    </div>
+                    <div class="score__card-heading score__spaced">
+                      <p class="score__coverage">
+                        {{ $t('score.ui.highlightCount', { count: improvements.length, total: products.length }) }} · {{ coverage(highlightKnown) }}
+                      </p>
+                      <InfoTip :title="$t('score.ui.highlights')" :text="highlightInfo" :sources="offSources" />
+                    </div>
+                    <p v-if="!improvements.length" class="score__muted">
+                      {{ $t('score.ui.noHighlights') }}
+                    </p>
+                    <AnalysisProductList :products="improvements">
+                      <template #default="{ product }">
+                        <div class="score__reasons">
+                          <span v-for="reason in product.reasons" :key="reason" class="score__reason">{{ reasonLabel(reason) }}</span>
+                        </div>
+                      </template>
+                    </AnalysisProductList>
+                  </template>
+                  <template v-else-if="row.key === 'co2'">
+                    <div class="score__card-heading">
+                      <h3>{{ $t('score.co2Title') }}</h3>
+                      <InfoTip :title="$t('score.co2Title')" :text="$t('score.ui.info.carbon') + ' ' + $t('score.ui.carbonReferenceInfo')" :sources="[...referenceSources, { label: 'ADEME · Nos Gestes Climat', url: 'https://nosgestesclimat.fr/questions-frequentes' }]" />
+                    </div>
+                    <template v-if="carbon.kg !== null">
+                      <div class="score__carbon-metrics">
+                        <div>
+                          <strong>{{ formatNumber(carbon.kg, 2) }}</strong>
+                          <span>{{ $t('score.ui.carbonBasketUnit') }}</span>
+                        </div>
+                        <div>
+                          <strong>{{ formatCarbonReference(carbon.kg / weeklyCarbonReference) }}</strong>
+                          <span>{{ $t('score.ui.carbonRelativeLabel') }}</span>
+                        </div>
+                      </div>
+                      <div class="score__carbon-bar score__carbon-reference-bar" aria-hidden="true">
+                        <span :style="{ width: `${Math.min(carbon.kg / weeklyCarbonReference, 1) * 100}%` }" />
+                      </div>
+                      <p class="score__carbon-reference-value">
+                        {{ $t('score.ui.carbonWeekly', { kg: formatNumber(weeklyCarbonReference, 1) }) }}
+                      </p>
+                      <p class="score__carbon-reference-note">
+                        {{ $t('score.ui.carbonReferenceNote') }}
+                      </p>
+                    </template>
+                    <p v-else class="score__carbon-total">
+                      {{ $t('score.noData') }}
+                    </p>
+                    <p class="score__coverage">
+                      {{ $t('score.ui.estimated') }} · {{ coverage(carbon.known) }}
+                    </p>
+                    <details v-if="carbon.items.length" class="score__carbon-breakdown">
+                      <summary>{{ $t('score.ui.carbonBreakdown') }}</summary>
+                      <ul class="score__carbon-products">
+                        <li v-for="product in carbon.items" :key="product.id">
+                          <div class="score__carbon-row">
+                            <span class="score__carbon-name">
+                              <template v-for="(name, index) in product.names" :key="`${name}-${index}`">
+                                <span v-if="index"> / </span>
+                                <a v-if="product.sourceUrl" :href="product.barcode || !product.categoryTags[index] ? product.sourceUrl : `https://world.openfoodfacts.org/category/${encodeURIComponent(product.categoryTags[index])}`" target="_blank" rel="noopener noreferrer">{{ name }} ↗</a>
+                                <span v-else>{{ name }}</span>
+                              </template>
+                            </span>
+                            <strong>{{ $t('score.co2Value', { kg: formatNumber(product.co2Kg, 2) }) }}</strong>
+                          </div>
+                          <div class="score__carbon-bar" aria-hidden="true">
+                            <span :style="{ width: `${product.share * 100}%` }" />
+                          </div>
+                        </li>
+                      </ul>
+                    </details>
+                  </template>
+                  <template v-else>
+                    <div v-if="['sugars', 'salt', 'fat', 'saturatedFat'].includes(row.key)" class="score__card-heading">
+                      <span class="score__muted">{{ $t('score.ui.wholeBasket') }}</span>
+                      <InfoTip :title="$t(`score.nutrients.${row.key}`)" :text="$t('score.ui.info.nutrients')" :sources="referenceSources" />
+                    </div>
+                    <div v-else-if="['organic', 'fairTrade'].includes(row.key)" class="score__card-heading">
+                      <span class="score__muted">{{ coverage(labelsKnown) }}</span>
+                      <InfoTip :title="$t(`score.${row.key}`)" :text="$t('score.ui.info.labels')" :sources="offSources" />
+                    </div>
+                    <ScoreBreakdown v-bind="glanceDetail" :color="row.color" />
+                  </template>
                 </div>
               </v-expand-transition>
             </template>
           </div>
         </section>
 
-        <details class="score__card score__view">
-          <summary class="score__view-summary">
-            <v-icon icon="mdi-tune-variant" size="18" />{{ $t('score.ui.view.title') }}
-            <span class="score__view-current">{{ $t(`score.ui.view.presets.${currentPreset}`) }}</span>
-            <span class="score__muted">{{ $t('score.ui.view.shown', { shown: shownCount, total: allSectionKeys.length }) }}</span>
-          </summary>
-          <p class="score__coverage">
-            {{ $t('score.ui.view.hint') }}
-          </p>
-          <!-- Quick choices: one click shows a ready-made set of sections -->
-          <div class="score__view-presets" role="group" :aria-label="$t('score.ui.view.quick')">
-            <button v-for="preset in presetKeys" :key="preset" type="button" class="score__view-preset" :aria-pressed="currentPreset === preset" @click="applyPreset(preset)">
-              <v-icon :icon="presetIcons[preset]" size="18" />
-              <span>
-                <strong>{{ $t(`score.ui.view.presets.${preset}`) }}</strong>
-                <small>{{ $t(`score.ui.view.presetHints.${preset}`) }}</small>
-              </span>
-            </button>
-          </div>
-          <!-- Or one switch per section, with what it shows -->
-          <div v-for="group in viewSections" :key="group.key" class="score__view-group">
-            <h3>{{ $t(group.key === 'more' ? 'score.ui.view.more' : `score.ui.${group.key}`) }}</h3>
-            <ul class="score__view-list">
-              <li v-for="key in group.sections" :key="key">
-                <v-switch :model-value="shows(key)" color="#34c759" density="compact" hide-details inset :aria-describedby="`view-hint-${key}`" @update:model-value="toggleSection(key)">
-                  <template #label>
-                    <span class="score__view-label">
-                      <strong>{{ $t(`score.ui.view.sections.${key}`) }}</strong>
-                      <small :id="`view-hint-${key}`">{{ $t(`score.ui.view.sectionHints.${key}`) }}</small>
-                    </span>
-                  </template>
-                </v-switch>
-              </li>
-            </ul>
-          </div>
-        </details>
-
-        <div v-if="visiblePillars" class="score__pillars" :class="{ 'score__pillars--single': visiblePillars === 1 }">
-          <section v-if="showsAny('health')" class="score__pillar score__pillar--health">
-            <h2><v-icon icon="mdi-heart-outline" size="22" />{{ $t('score.ui.health') }}</h2>
-            <CategoryChart v-if="shows('nutriscore')" id="section-nutriscore" kind="nutriscore" :title="$t('score.nutriscore')" :info="$t('score.ui.info.nutriscore')" :chart="charts.nutriscore" :sources="offSources" />
-            <CategoryChart v-if="shows('nova')" id="section-nova" kind="nova" :title="$t('score.ui.processing')" :info="$t('score.ui.info.nova')" :chart="charts.nova" :sources="novaSources" />
-            <section v-if="shows('additives')" id="section-additives" class="score__card">
-              <div class="score__card-heading">
-                <h3>{{ $t('score.additivesTitle') }}</h3><InfoTip :title="$t('score.additivesTitle')" :text="$t('score.ui.info.additives')" :sources="offSources" />
-              </div>
-              <p class="score__stat">
-                {{ additives.known ? $t('score.ui.additives', { additives: $t('score.ui.additivesCount', additives.list.length), products: $t('score.ui.productsCount', additives.products) }) : $t('score.noData') }}
-              </p>
-              <p class="score__coverage">
-                {{ coverage(additives.known) }}
-              </p>
-              <p class="score__coverage">
-                {{ $t('score.ui.withoutAdditives', { count: additives.without }) }}
-              </p>
-              <details v-if="additives.unknown" class="score__nested">
-                <summary>{{ $t('score.ui.unknownAdditives', { count: additives.unknown }) }}</summary>
-                <AnalysisProductList :products="products.filter(product => product.additives === null)" />
-              </details>
-              <details v-if="additives.list.length">
-                <summary>{{ $t('score.ui.viewAdditives') }}</summary>
-                <details v-for="additive in additives.list" :key="additive.tag" class="score__nested">
-                  <summary>{{ additiveName(additive.tag) }} <span class="score__muted">· {{ $t('score.ui.productsCount', additive.items.length) }}</span></summary>
-                  <AnalysisProductList :products="additive.items" />
-                </details>
-              </details>
-            </section>
-            <details v-if="shows('nutrients')" id="section-nutrients" class="score__card">
-              <summary>{{ $t('score.ui.nutritionDetails') }}</summary>
-              <div class="score__card-heading score__spaced">
-                <span class="score__muted">{{ $t('score.ui.wholeBasket') }}</span><InfoTip :title="$t('score.ui.nutritionDetails')" :text="$t('score.ui.info.nutrients')" :sources="referenceSources" />
-              </div>
-              <details v-for="(nutrient, key) in nutrients" :key="key" class="score__nested">
-                <summary class="score__metric-summary">
-                  <span>{{ $t(`score.nutrients.${key}`) }}</span><strong>{{ formatGrams(nutrient.grams) }}</strong>
-                </summary>
-                <p class="score__coverage">
-                  {{ coverage(nutrient.known) }}
-                </p>
-                <AnalysisProductList :products="nutrient.items">
-                  <template #default="{ product }">
-                    <div class="score__contribution">
-                      <span class="score__contribution-bar"><span :style="{ width: `${product.share * 100}%` }" /></span>
-                      <span class="score__coverage">{{ $t('score.ui.contribution', { grams: formatGrams(product.contribution), percent: formatPercent(product.share) }) }}</span>
-                    </div>
-                  </template>
-                </AnalysisProductList>
-              </details>
-            </details>
-          </section>
-          <section v-if="showsAny('environment')" class="score__pillar score__pillar--environment">
-            <h2><v-icon icon="mdi-leaf" size="22" />{{ $t('score.ui.environment') }}</h2>
-            <CategoryChart v-if="shows('greenScore')" id="section-greenScore" kind="greenScore" :title="$t('score.greenScore')" :info="$t('score.ui.info.greenScore')" :chart="charts.greenScore" :sources="greenSources" />
-            <section v-if="shows('co2')" id="section-co2" class="score__card">
-              <div class="score__card-heading">
-                <h3>{{ $t('score.co2Title') }}</h3><InfoTip :title="$t('score.co2Title')" :text="$t('score.ui.info.carbon')" :sources="referenceSources" />
-              </div>
-              <p class="score__stat">
-                {{ carbon.kg === null ? $t('score.noData') : $t('score.co2Value', { kg: formatNumber(carbon.kg, 2) }) }}
-              </p>
-              <span class="score__estimate">{{ $t('score.ui.estimated') }}</span>
-              <p class="score__coverage">
-                {{ coverage(carbon.known) }}
-              </p>
-              <details v-if="carbon.items.length">
-                <summary>{{ $t('score.ui.contributingProducts') }}</summary>
-                <AnalysisProductList :products="carbon.items">
-                  <template #default="{ product }">
-                    <span class="score__coverage">{{ $t('score.co2Value', { kg: formatNumber(product.co2Kg, 2) }) }}</span>
-                  </template>
-                </AnalysisProductList>
-              </details>
-            </section>
-            <CategoryChart v-if="shows('forest')" id="section-forest" kind="forest" :title="$t('score.ui.forest')" :info="$t('score.ui.info.forest')" :chart="charts.forest" :sources="forestSources" />
-          </section>
-        </div>
-
-        <details v-if="shows('labels')" id="section-labels" class="score__card score__section">
-          <summary>{{ $t('score.ui.labels') }}</summary>
-          <div class="score__card-heading score__spaced">
-            <span class="score__muted">{{ coverage(labelsKnown) }}</span><InfoTip :title="$t('score.ui.labels')" :text="$t('score.ui.info.labels')" :sources="offSources" />
-          </div>
-          <details v-for="label in labelGroups" :key="label.key" class="score__nested">
-            <summary>{{ $t(`score.${label.key}`) }} · {{ $t('score.ui.productsCount', label.items.length) }}</summary>
-            <AnalysisProductList :products="label.items" />
-          </details>
-        </details>
-
-        <section v-if="shows('checks') || shows('highlights')" class="score__section">
-          <h2>{{ $t('score.ui.closerLook') }}</h2>
-          <!-- Plain sentences about the basket, most important first (like Apple Health highlights) -->
-          <ul v-if="shows('highlights') && insights.length" class="score__insights">
-            <li v-for="insight in insights" :key="insight.key" class="score__card score__insight-item" :class="`score__insight--${insight.tone}`">
-              <button type="button" class="score__insight" :aria-expanded="openInsight === insight.key" :aria-controls="`insight-${insight.key}`" @click="openInsight = openInsight === insight.key ? null : insight.key">
-                <v-icon :icon="insight.icon" size="22" />
-                <p>{{ insight.text }}</p>
-                <v-icon icon="mdi-chevron-down" size="20" class="score__glance-chevron" />
-              </button>
-              <v-expand-transition>
-                <div v-if="openInsight === insight.key" :id="`insight-${insight.key}`" class="score__insight-detail">
-                  <ScoreBreakdown :items="insight.items" :note="insight.note" :color="insight.color" />
-                </div>
-              </v-expand-transition>
-            </li>
-          </ul>
-          <details v-if="shows('checks')" class="score__card score__filters">
-            <summary>{{ $t('score.ui.personalise') }}</summary>
-            <p class="score__coverage">
-              {{ $t('score.ui.remembered') }}
-            </p>
-            <h3 class="score__spaced">
-              {{ $t('score.ui.allergenCheck') }}
-            </h3>
-            <div class="score__choices">
-              <label v-for="allergen in allergenKeys" :key="allergen"><input v-model="selectedAllergens" type="checkbox" :value="allergen">{{ $t(`score.ui.allergens.${allergen}`) }}</label>
-            </div>
-            <div class="score__card-heading score__spaced">
-              <h3>{{ $t('score.ui.nutrientFilters') }}</h3><InfoTip :title="$t('score.ui.nutrientFilters')" :text="$t('score.ui.info.highNutrients')" :sources="nutrientSources" />
-            </div>
-            <div class="score__choices">
-              <label v-for="key in ['sugars', 'salt', 'fat']" :key="key"><input v-model="selectedNutrients" type="checkbox" :value="key">{{ $t(`score.ui.high.${key}`) }}</label>
-            </div>
-            <p v-for="key in selectedNutrients" :key="key" class="score__coverage">
-              {{ $t(`score.ui.high.${key}`) }} · {{ coverage(products.filter(p => ['low', 'moderate', 'high'].includes(p.nutrientLevels[key])).length) }}
-            </p>
-          </details>
-
-          <!-- Allergen results come first in the product results list. -->
-          <section v-if="shows('checks') && selectedAllergens.length" class="score__card score__section">
-            <div class="score__card-heading">
-              <h3>{{ $t('score.ui.allergenResults') }}</h3><InfoTip :title="$t('score.ui.allergenResults')" :text="$t('score.ui.info.allergens')" :sources="offSources" />
-            </div>
-            <details v-for="allergen in selectedAllergens" :key="allergen" class="score__nested" open>
-              <summary>{{ $t(`score.ui.allergens.${allergen}`) }}</summary>
-              <details v-for="(group, key) in allergenResults[allergen]" :key="key" class="score__nested">
-                <summary>{{ $t(`score.ui.allergenStatus.${key}`) }} · {{ $t('score.ui.productsCount', group.length) }}</summary>
-                <AnalysisProductList :products="group">
-                  <template #default="{ product }">
-                    <span v-if="allergen === 'gluten' && product.labels?.includes('en:gluten-free')" class="score__estimate">{{ $t('score.ui.glutenFreeLabel') }}</span>
-                  </template>
-                </AnalysisProductList>
-              </details>
-              <p v-if="allergen === 'gluten'" class="score__coverage">
-                {{ $t('score.ui.glutenFreeLabels', { count: glutenFreeNotListed }) }}
-              </p>
-            </details>
-          </section>
-
-          <section v-if="shows('highlights')" class="score__card score__section">
-            <div class="score__card-heading">
-              <h3>{{ $t('score.ui.highlights') }}</h3><InfoTip :title="$t('score.ui.highlights')" :text="highlightInfo" :sources="offSources" />
-            </div>
-            <p class="score__coverage">
-              {{ $t('score.ui.highlightCount', { count: improvements.length, total: products.length }) }} · {{ coverage(highlightKnown) }}
-            </p>
-            <p v-if="!improvements.length" class="score__muted">
-              {{ $t('score.ui.noHighlights') }}
-            </p>
-            <AnalysisProductList :products="improvements">
-              <template #default="{ product }">
-                <div class="score__reasons">
-                  <span v-for="reason in product.reasons" :key="reason" class="score__reason">{{ reasonLabel(reason) }}</span>
-                </div>
-              </template>
-            </AnalysisProductList>
-          </section>
-        </section>
-
-        <details v-if="shows('products')" id="section-products" class="score__card score__section score__shopping">
+        <details class="score__card score__section score__shopping" open>
           <summary class="score__shopping-summary">
-            <span class="score__shopping-title">{{ $t('score.ui.shoppingSummary') }}</span>
-            <span class="score__muted">{{ $t('score.ui.productsCount', products.length) }}</span>
-            <span class="score__shopping-toggle">
-              <span class="score__show-products">{{ $t('score.ui.viewProducts') }}</span>
-              <span class="score__hide-products">{{ $t('score.ui.hideProducts') }}</span>
-              <v-icon icon="mdi-chevron-down" size="18" />
+            <span class="score__shopping-title score__section-title">{{ $t('score.ui.shoppingSummary') }}</span>
+            <span class="score__shopping-controls">
+              <span class="score__sort">
+                <v-menu location="bottom end" max-height="420">
+                  <template #activator="{ props }">
+                    <v-btn v-bind="props" variant="text" class="score__sort-button" append-icon="mdi-chevron-down" :aria-label="`${$t('score.ui.sortBy')}: ${$t(`score.ui.sorts.${productSort}`)}`" :title="productSort === 'price' || productSort === 'unitPrice' ? $t(`score.ui.priceSortInfo.${productSort}`) : undefined" @click.stop @keydown.stop>
+                      <span class="score__sort-label">{{ $t('score.ui.sortBy') }}:</span>
+                      {{ $t(`score.ui.sorts.${productSort}`) }}
+                    </v-btn>
+                  </template>
+                  <v-list class="score__sort-menu" density="compact" role="menu">
+                    <template v-for="(option, index) in sortOptions" :key="option.key">
+                      <v-list-subheader v-if="index === 0 || option.group !== sortOptions[index - 1].group">
+                        {{ $t(`score.ui.sortGroups.${option.group}`) }}
+                      </v-list-subheader>
+                      <v-list-item :title="$t(`score.ui.sorts.${option.key}`)" :active="productSort === option.key" role="menuitemradio" :aria-checked="productSort === option.key" @click="productSort = option.key">
+                        <template #append>
+                          <v-icon v-if="productSort === option.key" icon="mdi-check" size="18" />
+                        </template>
+                      </v-list-item>
+                    </template>
+                  </v-list>
+                </v-menu>
+                <v-btn v-if="productSort !== 'receipt'" icon="mdi-swap-vertical" size="small" variant="text" :aria-label="$t('score.ui.reverseOrder')" :title="$t(`score.ui.sortOrder.${productSort}.${sortReverse ? 'reversed' : 'normal'}`)" @click.stop="sortReverse = !sortReverse" @keydown.stop />
+              </span>
+              <v-menu :close-on-content-click="false" location="bottom end">
+                <template #activator="{ props }">
+                  <v-btn v-bind="props" icon="mdi-cog-outline" size="small" variant="text" :aria-label="$t('score.ui.allergenSettings')" :class="{ 'score__settings-active': selectedAllergens.length }" @click.stop @keydown.stop />
+                </template>
+                <div class="score__settings-panel">
+                  <div class="score__card-heading">
+                    <h3>{{ $t('score.ui.allergenCheck') }}</h3>
+                    <InfoTip :title="$t('score.ui.allergenCheck')" :text="$t('score.ui.info.allergens')" :sources="offSources" />
+                  </div>
+                  <p class="score__coverage">{{ $t('score.ui.allergenChooseHint') }}</p>
+                  <div class="score__allergen-choices">
+                    <label v-for="allergen in allergenKeys" :key="allergen">
+                      <input v-model="selectedAllergens" type="checkbox" :value="allergen">
+                      <span>{{ $t(`score.ui.allergens.${allergen}`) }}</span>
+                    </label>
+                  </div>
+                  <div class="score__allergen-key">
+                    <span v-for="status in allergenStatuses.slice(0, 3)" :key="status.key">
+                      <v-icon :icon="status.icon" size="16" />{{ $t(`score.ui.allergenRowStatus.${status.key}`) }}
+                    </span>
+                  </div>
+                  <p class="score__coverage">
+                    {{ $t('score.ui.remembered') }}
+                  </p>
+                </div>
+              </v-menu>
+              <span class="score__shopping-toggle">
+                <v-icon icon="mdi-chevron-down" size="18" />
+              </span>
             </span>
           </summary>
-          <div class="score__list-toolbar">
-            <div class="score__spending-coverage">
-              <span class="score__coverage">{{ $t('score.ui.priceCoverage', { known: pricedProducts.length, total: products.length }) }}</span>
-              <InfoTip :title="$t('score.ui.totalSpent')" :text="$t('score.ui.info.spending')" />
+          <div class="score__receipt-meta">
+            <div class="score__receipt-place">
+              <h3>{{ receipt.locationName || $t('score.ui.unknownShop') }}</h3>
+              <p>{{ receiptDateLabel }}</p>
             </div>
-            <div class="score__sort">
-              <v-select v-model="productSort" :label="$t('score.ui.sortBy')" :items="sortOptions.map(option => ({ value: option.key, title: $t(`score.ui.sorts.${option.key}`) }))" variant="outlined" density="compact" hide-details />
-              <button v-if="productSort !== 'receipt'" type="button" class="score__sort-order" :aria-label="$t('score.ui.reverseOrder')" @click="sortReverse = !sortReverse">
-                <v-icon icon="mdi-swap-vertical" size="16" />{{ $t(`score.ui.sortOrder.${productSort}.${sortReverse ? 'reversed' : 'normal'}`) }}
-              </button>
+            <div class="score__receipt-totals">
+              <span class="score__receipt-count">{{ $t('score.ui.productsCount', products.length) }}</span>
+              <dl class="score__receipt-amount">
+                <dt>
+                  {{ $t(pricedProducts.length === products.length ? 'score.ui.totalSpent' : 'score.ui.knownSpending') }}
+                  <InfoTip :title="$t('score.ui.totalSpent')" :text="$t('score.ui.priceCoverage', { known: pricedProducts.length, total: products.length }) + '. ' + $t('score.ui.info.spending')" />
+                </dt>
+                <dd>{{ pricedProducts.length ? formatMoney(totalSpent) : $t('score.noData') }}</dd>
+              </dl>
             </div>
+            <p v-if="pricedProducts.length !== products.length" class="score__coverage score__receipt-incomplete">
+              {{ $t('score.ui.priceCoverage', { known: pricedProducts.length, total: products.length }) }}
+            </p>
           </div>
           <AnalysisProductList :products="sortedProducts" show-receipt-names horizontal>
             <template #default="{ product }">
               <div class="score__product-grades">
-                <span v-for="kind in ['nutriscore', 'nova', 'greenScore', 'forest']" :key="kind" class="score__product-grade">
-                  {{ $t(kind === 'forest' ? 'score.ui.forest' : `score.${kind}`) }}
-                  <strong>{{ product[kind] === null ? '?' : product[kind] === 'a-plus' ? 'A+' : product[kind].toUpperCase() }}</strong>
-                </span>
+                <img v-for="badge in productBadges(product)" :key="badge.kind" class="score__product-badge" :src="badge.src" :alt="badge.label" :title="badge.label" loading="lazy">
+                <div v-if="selectedAllergens.length" class="score__product-allergens">
+                  <span v-for="group in productAllergenGroups(product)" :key="group.key" class="score__allergen-mark" :class="`score__allergen-mark--${group.key}`">
+                    <v-icon :icon="group.icon" size="16" aria-hidden="true" />
+                    <span><strong>{{ $t(`score.ui.allergenRowStatus.${group.key}`) }}:</strong> {{ group.names }}</span>
+                  </span>
+                  <span v-if="selectedAllergens.includes('gluten') && product.labels?.includes('en:gluten-free')" class="score__allergen-mark"><v-icon icon="mdi-label-outline" size="16" aria-hidden="true" />{{ $t('score.ui.glutenFreeLabel') }}</span>
+                </div>
               </div>
               <div class="score__product-meta">
                 <span>{{ $t('score.ui.purchased', { quantity: product.quantity }) }}</span>
@@ -322,9 +294,6 @@
                 <span v-else-if="product.ml !== null">{{ formatMl(product.ml) }}</span>
                 <strong>{{ product.lineTotal !== null ? formatMoney(product.lineTotal) : $t('score.noData') }}</strong>
               </div>
-              <v-btn size="small" variant="text" @click="editProduct(product)">
-                {{ $t('score.ui.edit') }}
-              </v-btn>
             </template>
           </AnalysisProductList>
         </details>
@@ -349,7 +318,6 @@ import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
 import { receiptSignature } from '@/services/receiptHistory'
-import receiptHistoryDb from '@/services/receiptHistoryDb'
 import ADDITIVES from '@/utils/additives.json'
 import CategoryChart from '@/components/CategoryChart.vue'
 import ScoreRings from '@/components/ScoreRings.vue'
@@ -358,38 +326,22 @@ import InfoTip from '@/components/InfoTip.vue'
 import AnalysisProductList from '@/components/AnalysisProductList.vue'
 
 const SORT_OPTIONS = [
-  { key: 'receipt', icon: 'mdi-receipt-text-outline' },
-  { key: 'review', icon: 'mdi-alert-circle-outline' },
-  { key: 'nutriscore', icon: 'mdi-heart-outline' },
-  { key: 'nova', icon: 'mdi-factory' },
-  { key: 'greenScore', icon: 'mdi-leaf' },
-  { key: 'forest', icon: 'mdi-pine-tree' },
-  { key: 'co2', icon: 'mdi-molecule-co2' },
-  { key: 'price', icon: 'mdi-currency-eur' },
-  { key: 'weight', icon: 'mdi-weight' },
-  { key: 'name', icon: 'mdi-sort-alphabetical-ascending' },
-  { key: 'salt', icon: 'mdi-shaker-outline' },
-  { key: 'sugars', icon: 'mdi-cube-outline' },
-  { key: 'fat', icon: 'mdi-water-outline' }
+  { key: 'receipt', group: 'shopping' },
+  { key: 'name', group: 'shopping' },
+  { key: 'review', group: 'shopping' },
+  { key: 'price', group: 'shopping' },
+  { key: 'unitPrice', group: 'shopping' },
+  { key: 'weight', group: 'shopping' },
+  { key: 'nutriscore', group: 'health' },
+  { key: 'nova', group: 'health' },
+  { key: 'sugars', group: 'health' },
+  { key: 'salt', group: 'health' },
+  { key: 'fat', group: 'health' },
+  { key: 'greenScore', group: 'environment' },
+  { key: 'forest', group: 'environment' },
+  { key: 'co2', group: 'environment' }
 ]
 const PREFS_KEY = 'score-my-receipt:analysis-preferences:v1'
-// Sections the user can show or hide, by column
-const VIEW_SECTIONS = [
-  { key: 'health', sections: ['nutriscore', 'nova', 'additives', 'nutrients'] },
-  { key: 'environment', sections: ['greenScore', 'co2', 'forest'] },
-  { key: 'more', sections: ['labels', 'checks', 'highlights', 'products'] }
-]
-const SECTION_KEYS = VIEW_SECTIONS.flatMap(group => group.sections)
-// Ready-made views, as the sections they hide. Every new receipt starts on 'essentials':
-// no section that repeats a ring or an "At a glance" row (they stay one switch away).
-const VIEW_VERSION = 3 // bump when the presets change, so old saved views are dropped
-const PRESETS = {
-  essentials: ['nutriscore', 'nova', 'greenScore', 'additives', 'nutrients', 'co2', 'labels'],
-  health: ['greenScore', 'co2', 'forest', 'labels'],
-  environment: ['nutriscore', 'nova', 'additives', 'nutrients', 'checks'],
-  all: []
-}
-const PRESET_ICONS = { essentials: 'mdi-star-outline', health: 'mdi-heart-outline', environment: 'mdi-leaf', all: 'mdi-view-grid-outline' }
 function preferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}')
@@ -398,12 +350,9 @@ function preferences() {
       nutrients: Array.isArray(saved.nutrients) ? saved.nutrients.filter(n => ['sugars', 'salt', 'fat'].includes(n)) : [],
       sort: saved.sort in SORTS ? saved.sort : 'receipt',
       reverse: saved.reverse === true,
-      // The custom view only applies to the receipt it was chosen for
-      view: saved.view && saved.view.v === VIEW_VERSION && typeof saved.view.receipt === 'string' && Array.isArray(saved.view.hidden)
-        ? { v: VIEW_VERSION, receipt: saved.view.receipt, hidden: saved.view.hidden.filter(key => SECTION_KEYS.includes(key)) }
-        : null
+      hiddenGlance: Array.isArray(saved.hiddenGlance) ? saved.hiddenGlance.filter(key => typeof key === 'string') : []
     }
-  } catch { return { allergens: [], nutrients: [], sort: 'receipt', reverse: false, view: null } }
+  } catch { return { allergens: [], nutrients: [], sort: 'receipt', reverse: false, hiddenGlance: [] } }
 }
 export default {
   name: 'Score',
@@ -412,11 +361,19 @@ export default {
     const prefs = preferences()
     return {
       fetched: {}, detailsStatus: 'idle', requestId: 0,
-      storageError: false, initializing: true, previous: null, openGlance: null, openInsight: null, ringDetail: null,
+      storageError: false, initializing: true, openGlance: null, ringDetail: null,
+      weeklyCarbonReference: 2000 / 52,
       selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
-      productSort: prefs.sort, sortReverse: prefs.reverse,
-      hiddenSections: [], savedView: prefs.view, viewSections: VIEW_SECTIONS, presetKeys: Object.keys(PRESETS), presetIcons: PRESET_ICONS, allSectionKeys: SECTION_KEYS, sortOptions: SORT_OPTIONS,
-      allergenKeys: ALLERGENS, referenceSources: REFERENCE_SOURCES,
+      hiddenGlance: prefs.hiddenGlance,
+      productSort: prefs.sort, sortReverse: prefs.reverse, sortOptions: SORT_OPTIONS,
+      allergenKeys: ALLERGENS,
+      allergenStatuses: [
+        { key: 'contains', icon: 'mdi-alert-circle' },
+        { key: 'mayContain', icon: 'mdi-alert-outline' },
+        { key: 'unknown', icon: 'mdi-help-circle-outline' },
+        { key: 'notListed', icon: 'mdi-text-box-search-outline' }
+      ],
+      referenceSources: REFERENCE_SOURCES,
       offSources: [{ label: 'Open Food Facts', url: 'https://world.openfoodfacts.org/data' }],
       novaSources: [{ label: 'Open Food Facts · NOVA', url: 'https://world.openfoodfacts.org/nova' }],
       greenSources: [{ label: 'Open Food Facts · Green-Score', url: 'https://world.openfoodfacts.org/green-score' }],
@@ -427,12 +384,66 @@ export default {
   computed: {
     ...mapStores(useAppStore),
     receipt() { return this.appStore.getReceipt },
+    receiptTitle() {
+      const shop = this.receipt.locationName?.trim()
+      return shop ? this.$t('score.ui.shopOverview', { shop }) : this.$t('score.ui.title')
+    },
+    receiptFullDate() {
+      if (!this.receipt.date) return this.$t('score.ui.unknownReceiptDate')
+      const date = new Date(`${this.receipt.date}T12:00:00`)
+      return Number.isNaN(date.getTime()) ? this.$t('score.ui.unknownReceiptDate') : new Intl.DateTimeFormat(this.$i18n.locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(date)
+    },
+    receiptDateLabel() {
+      if (!this.receipt.date) return this.$t('score.ui.unknownReceiptDate')
+      const date = new Date(`${this.receipt.date}T12:00:00`)
+      return Number.isNaN(date.getTime()) ? this.receipt.date : new Intl.DateTimeFormat(this.$i18n.locale, { dateStyle: 'medium' }).format(date)
+    },
     items() { return this.appStore.getItems },
     isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
     isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
     barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
     snapshotMatches() { return this.receipt.analysisSnapshot?.signature === receiptSignature(this.receipt) },
     products() { return this.snapshotMatches ? this.receipt.analysisSnapshot.products : analyseProducts(this.items, this.fetched) },
+    glance() {
+      const grams = (value) => value === null ? { value: '—', unit: '' } : value >= 1000 ? { value: this.formatNumber(value / 1000, 2), unit: 'kg' } : { value: this.formatNumber(value, value < 10 ? 1 : 0), unit: 'g' }
+      const count = (n, unit) => ({ value: this.formatNumber(n), unit: this.$t(`score.ui.glance.units.${unit}`, n) })
+      // No product known for a row: show a dash, never a misleading 0
+      const rows = [
+        { key: 'highlights', icon: 'mdi-magnify', color: '#703b12', known: this.highlightKnown, ...count(this.improvements.length, 'products') },
+        { key: 'spending', icon: 'mdi-cart-outline', color: '#174f78', target: 'products', known: this.pricedProducts.length, value: this.pricedProducts.length ? this.formatMoney(this.totalSpent) : '—', unit: '' },
+        { key: 'weight', icon: 'mdi-weight', color: '#526156', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
+        { key: 'sugars', icon: 'mdi-cube-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
+        { key: 'salt', icon: 'mdi-shaker-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
+        { key: 'fat', icon: 'mdi-water-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.fat.known, ...grams(this.nutrients.fat.grams) },
+        { key: 'saturatedFat', icon: 'mdi-water-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.saturatedFat.known, ...grams(this.nutrients.saturatedFat.grams) },
+        { key: 'additives', icon: 'mdi-flask-outline', color: '#703b12', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
+        { key: 'co2', icon: 'mdi-molecule-co2', color: '#245b3f', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
+        { key: 'organic', icon: 'mdi-sprout-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[0].items.length, 'products') },
+        { key: 'fairTrade', icon: 'mdi-handshake-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[1].items.length, 'products') }
+      ]
+      return rows.map(row => ({ ...(row.known ? row : { ...row, value: '—', unit: '' }), ...this.glanceStatus(row.key) }))
+    },
+    visibleGlance() { return this.glance.filter(row => !this.hiddenGlance.includes(row.key)) },
+    // What unfolds under the open "At a glance" row: products with their value and share
+    glanceDetail() {
+      const total = this.products.length
+      const ranked = (list, amount, format) => {
+        const sum = list.reduce((acc, p) => acc + amount(p), 0)
+        return [...list].sort((a, b) => amount(b) - amount(a)).map(p => ({ ...p, value: format(p), share: sum ? amount(p) / sum : 0 }))
+      }
+      switch (this.openGlance) {
+        case 'spending': return { note: this.$t('score.ui.breakdown.spending'), items: ranked(this.pricedProducts, p => p.lineTotal, p => this.formatMoney(p.lineTotal)), missing: total - this.pricedProducts.length }
+        case 'weight': return { note: this.$t('score.ui.breakdown.weight'), items: ranked(this.weight.items, p => p.grams ?? p.ml, p => p.grams !== null ? this.formatGrams(p.grams) : this.formatMl(p.ml)), missing: total - this.weight.known }
+        case 'sugars':
+        case 'salt':
+        case 'fat':
+        case 'saturatedFat': return { note: this.$t('score.ui.breakdown.nutrient', { total: this.formatGrams(this.nutrients[this.openGlance].grams) }), items: this.contributions(this.nutrients[this.openGlance].items), missing: total - this.nutrients[this.openGlance].known }
+        case 'organic': return { note: this.$t('score.ui.breakdown.organic'), items: this.labelGroups[0].items, missing: total - this.labelsKnown }
+        case 'fairTrade': return { note: this.$t('score.ui.breakdown.fairTrade'), items: this.labelGroups[1].items, missing: total - this.labelsKnown }
+        default: return { items: [] }
+      }
+    },
+    ringTitles() { return { nutriscore: this.$t('score.nutriscore'), nova: this.$t('score.ui.processing'), greenScore: this.$t('score.greenScore'), forest: this.$t('score.ui.forest') } },
     charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore', 'forest'].map(kind => [kind, distribution(this.products, kind)])) },
     nutrients() { return Object.fromEntries(Object.keys(NUTRIENTS).map(key => [key, nutrientTotal(this.products, key)])) },
     // Drinks sold by volume are counted as 1 ml ≈ 1 g
@@ -449,85 +460,6 @@ export default {
         { key: 'fairTrade', items: this.products.filter(p => p.labels?.some(l => l.includes('fair-trade'))) }
       ]
     },
-    // Receipt date as the line above the title, like the date above "Summary" in Apple Health
-    receiptDate() {
-      const date = new Date(`${this.receipt.date}T00:00:00`)
-      return this.receipt.date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat(this.$i18n.locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date) : null
-    },
-    // Key figures for the rows under the rings: value and unit apart, like Apple Health
-    glance() {
-      const grams = (value) => value === null ? { value: '—', unit: '' } : value >= 1000 ? { value: this.formatNumber(value / 1000, 2), unit: 'kg' } : { value: this.formatNumber(value, value < 10 ? 1 : 0), unit: 'g' }
-      const count = (n, unit) => ({ value: this.formatNumber(n), unit: this.$t(`score.ui.glance.units.${unit}`, n) })
-      // No product known for a row: show a dash, never a misleading 0
-      const rows = [
-        { key: 'spending', icon: 'mdi-cart-outline', color: '#007aff', target: 'products', known: this.pricedProducts.length, value: this.pricedProducts.length ? this.formatMoney(this.totalSpent) : '—', unit: '' },
-        { key: 'weight', icon: 'mdi-weight', color: '#af52de', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
-        { key: 'sugars', icon: 'mdi-cube-outline', color: '#ff2d55', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
-        { key: 'salt', icon: 'mdi-shaker-outline', color: '#ff2d55', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
-        { key: 'fat', icon: 'mdi-water-outline', color: '#ff2d55', target: 'nutrients', known: this.nutrients.fat.known, ...grams(this.nutrients.fat.grams) },
-        { key: 'additives', icon: 'mdi-flask-outline', color: '#ff9500', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
-        { key: 'co2', icon: 'mdi-molecule-co2', color: '#248a3d', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
-        { key: 'organic', icon: 'mdi-sprout-outline', color: '#248a3d', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[0].items.length, 'products') }
-      ]
-      return rows.map(row => row.known ? row : { ...row, value: '—', unit: '' })
-    },
-    // What unfolds under the open "At a glance" row: products with their value and share
-    glanceDetail() {
-      const total = this.products.length
-      const ranked = (list, amount, format) => {
-        const sum = list.reduce((acc, p) => acc + amount(p), 0)
-        return [...list].sort((a, b) => amount(b) - amount(a)).map(p => ({ ...p, value: format(p), share: sum ? amount(p) / sum : 0 }))
-      }
-      switch (this.openGlance) {
-        case 'spending': return { note: this.$t('score.ui.breakdown.spending'), items: ranked(this.pricedProducts, p => p.lineTotal, p => this.formatMoney(p.lineTotal)), missing: total - this.pricedProducts.length }
-        case 'weight': return { note: this.$t('score.ui.breakdown.weight'), items: ranked(this.weight.items, p => p.grams ?? p.ml, p => p.grams !== null ? this.formatGrams(p.grams) : this.formatMl(p.ml)), missing: total - this.weight.known }
-        case 'sugars':
-        case 'salt':
-        case 'fat': return { note: this.$t('score.ui.breakdown.nutrient', { total: this.formatGrams(this.nutrients[this.openGlance].grams) }), items: this.contributions(this.nutrients[this.openGlance].items), missing: total - this.nutrients[this.openGlance].known }
-        case 'co2': return { note: this.$t('score.ui.breakdown.co2'), items: ranked(this.carbon.items, p => p.co2Kg, p => this.$t('score.co2Value', { kg: this.formatNumber(p.co2Kg, 2) })), missing: total - this.carbon.known }
-        case 'organic': return { note: this.$t('score.ui.breakdown.organic'), items: this.labelGroups[0].items, missing: total - this.labelsKnown }
-        default: return { items: [] }
-      }
-    },
-    // Charts of the last saved receipt, for the trend under each ring
-    previousCharts() {
-      if (!this.previous) return null
-      return Object.fromEntries(['nutriscore', 'nova', 'greenScore'].map(kind => [kind, distribution(this.previous.products, kind)]))
-    },
-    previousDate() {
-      const date = new Date(`${this.previous?.date}T00:00:00`)
-      return this.previous?.date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat(this.$i18n.locale, { day: 'numeric', month: 'short' }).format(date) : this.$t('score.ui.rings.lastReceipt')
-    },
-    // Up to 4 plain-language facts, only from data we have (never invented)
-    insights() {
-      const list = []
-      const count = (filter) => this.products.filter(filter).length
-      for (const allergen of this.selectedAllergens) {
-        const n = this.allergenResults[allergen]?.contains.length || 0
-        const name = this.$t(`score.ui.allergens.${allergen}`).toLowerCase()
-        if (n) list.push({ key: `allergen-${allergen}`, tone: 'alert', color: '#d70015', icon: 'mdi-alert-octagon-outline', text: this.$t('score.ui.insights.allergen', { n, allergen: name }, n), note: this.$t('score.ui.insightsMore.allergen', { allergen: name }), items: this.allergenResults[allergen].contains })
-      }
-      const ultra = count(p => p.nova === '4')
-      if (ultra) list.push({ key: 'ultra', tone: 'warning', color: '#ff9500', icon: 'mdi-factory', text: this.$t('score.ui.insights.ultraProcessed', { n: ultra }, ultra), note: this.$t('score.ui.insightsMore.ultra'), items: this.products.filter(p => p.nova === '4') })
-      const sugar = this.nutrients.sugars
-      const top = sugar.items[0]
-      if (top && sugar.items.length > 1 && top.share >= 0.3) list.push({ key: 'sugar', tone: 'warning', color: '#ff2d55', icon: 'mdi-cube-outline', text: this.$t('score.ui.insights.sugarSource', { name: top.name, percent: this.formatPercent(top.share) }), note: this.$t('score.ui.insightsMore.sugar', { total: this.formatGrams(sugar.grams) }), items: this.contributions(sugar.items) })
-      const poor = count(p => ['d', 'e'].includes(p.nutriscore))
-      const graded = (grades) => this.products.filter(p => grades.includes(p.nutriscore)).map(p => ({ ...p, value: `${this.$t('score.nutriscore')} ${p.nutriscore.toUpperCase()} · ${this.$t(`score.meaning.nutriscore.${p.nutriscore}`)}` }))
-      if (poor) list.push({ key: 'poor', tone: 'warning', color: '#ff9500', icon: 'mdi-heart-broken-outline', text: this.$t('score.ui.insights.poorNutriscore', { n: poor }, poor), note: this.$t('score.ui.insightsMore.poor'), items: graded(['d', 'e']) })
-      const rated = this.charts.nutriscore.known
-      const good = count(p => ['a', 'b'].includes(p.nutriscore))
-      if (rated && good / rated >= 0.5) list.push({ key: 'good', tone: 'good', color: '#248a3d', icon: 'mdi-check-circle-outline', text: this.$t('score.ui.insights.goodNutriscore', { percent: this.formatPercent(good / rated) }), note: this.$t('score.ui.insightsMore.good'), items: graded(['a', 'b']) })
-      return list.slice(0, 4)
-    },
-    ringTitles() { return { nutriscore: this.$t('score.nutriscore'), nova: this.$t('score.ui.processing'), greenScore: this.$t('score.greenScore') } },
-    receiptKey() { return String(this.receipt.proofId || receiptSignature(this.receipt)) },
-    currentPreset() {
-      const hidden = [...this.hiddenSections].sort().join()
-      return Object.keys(PRESETS).find(key => [...this.presetHidden(key)].sort().join() === hidden) || 'custom'
-    },
-    shownCount() { return SECTION_KEYS.length - this.hiddenSections.length },
-    visiblePillars() { return ['health', 'environment'].filter(this.showsAny).length },
     sortedProducts() { return sortProducts(this.products, this.productSort, this.sortReverse, this.selectedNutrients) },
     pricedProducts() { return this.products.filter(p => p.lineTotal !== null) },
     totalSpent() { return this.pricedProducts.reduce((sum, p) => sum + p.lineTotal, 0) },
@@ -535,23 +467,23 @@ export default {
     highlightKnown() { return this.products.filter(p => p.nutriscore !== null || p.nova !== null || p.greenScore !== null || this.selectedNutrients.some(key => ['low', 'moderate', 'high'].includes(p.nutrientLevels[key]))).length },
     highlightInfo() { return this.$t('score.ui.info.highlights') + ' ' + ['nutriscore', 'nova', 'greenScore'].map(kind => `${this.$t(`score.${kind}`)}: ${this.coverage(this.charts[kind].known)}`).join('. ') },
     allergenResults() { return Object.fromEntries(this.selectedAllergens.map(a => [a, allergenGroups(this.products, a)])) },
-    glutenFreeNotListed() { return (this.allergenResults.gluten?.notListed || []).filter(p => p.labels?.includes('en:gluten-free')).length }
+    allergenMarks() {
+      const marks = Object.fromEntries(this.products.map(product => [product.id, []]))
+      Object.entries(this.allergenResults).forEach(([allergen, groups]) => {
+        Object.entries(groups).forEach(([status, products]) => {
+          products.forEach(product => marks[product.id].push({ allergen, status }))
+        })
+      })
+      return marks
+    }
   },
   watch: {
     items: { handler() { if (!this.initializing) this.loadDetails() }, deep: true },
     selectedAllergens: { handler: 'savePreferences', deep: true },
     selectedNutrients: { handler: 'savePreferences', deep: true },
+    hiddenGlance: { handler() { if (this.hiddenGlance.includes(this.openGlance)) this.openGlance = null; this.savePreferences() }, deep: true },
     productSort: 'savePreferences',
-    sortReverse: 'savePreferences',
-    hiddenSections: { handler: 'saveView', deep: true },
-    // A new receipt starts again on the essentials; the same receipt keeps its custom view
-    receiptKey: {
-      immediate: true,
-      handler(key) {
-        this.hiddenSections = this.savedView?.receipt === key ? this.savedView.hidden : this.presetHidden('essentials')
-        this.loadPrevious()
-      }
-    }
+    sortReverse: 'savePreferences'
   },
   mounted() {
     if (this.$route.query.mock === '1' || !this.items.length) this.appStore.loadMockReceipt()
@@ -560,19 +492,39 @@ export default {
   },
   unmounted() { this.requestId += 1 },
   methods: {
-    // Most recent other scored receipt in the history, if any
-    loadPrevious() {
-      const { historyId, proofId } = this.receipt
-      receiptHistoryDb.list()
-        .then(rows => {
-          const row = rows.find(r => r.status === 'scored' && r.id !== historyId && !(proofId && r.proofId === proofId))
-          return row ? receiptHistoryDb.get(row.id) : null
-        })
-        .then(record => { this.previous = record?.analysisSnapshot ? { date: record.date, products: record.analysisSnapshot.products } : null })
-        .catch(() => { this.previous = null })
+    glanceStatus(key) {
+      const nutrient = key === 'saturatedFat' ? 'saturated-fat' : key
+      if (['sugars', 'salt', 'fat', 'saturatedFat'].includes(key)) {
+        const high = this.products.filter(product => product.nutrientLevels[nutrient] === 'high').length
+        if (high) return { tone: 'warning', status: this.$t('score.ui.glance.highNutrient', { count: high }), color: '#8a3028' }
+        if (this.products.length && this.products.every(product => product.nutrientLevels[nutrient] === 'low')) return { tone: 'good', status: this.$t('score.ui.glance.lowNutrient'), color: '#245b3f' }
+      }
+      if (key === 'co2' && this.carbon.kg !== null) {
+        const share = this.carbon.kg / this.weeklyCarbonReference
+        if (share >= 1) return { tone: 'warning', status: this.$t('score.ui.glance.carbonFull'), color: '#8a3028' }
+        if (share >= 0.5) return { tone: 'caution', status: this.$t('score.ui.glance.carbonHalf'), color: '#794d16' }
+      }
+      return {}
     },
-    editProduct(product) {
-      this.$router.push({ name: 'review', query: { edit: product.itemId } })
+    productAllergenGroups(product) {
+      const marks = this.allergenMarks[product.id] || []
+      return this.allergenStatuses.map(status => ({
+        ...status,
+        names: marks.filter(mark => mark.status === status.key).map(mark => this.$t(`score.ui.allergens.${mark.allergen}`)).join(', ')
+      })).filter(group => group.names)
+    },
+    productBadges(product) {
+      const types = [
+        { kind: 'nutriscore', prefix: 'nutriscore', grades: ['a', 'b', 'c', 'd', 'e'] },
+        { kind: 'nova', prefix: 'nova-group', grades: ['1', '2', '3', '4'] },
+        { kind: 'greenScore', prefix: 'green-score', grades: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'] },
+        { kind: 'forest', prefix: 'forest-footprint-2026-simple', grades: ['a', 'b', 'c', 'd'] }
+      ]
+      return types.filter(type => type.grades.includes(product[type.kind])).map(type => ({
+        kind: type.kind,
+        src: `${import.meta.env.BASE_URL}score-badges/${type.prefix}-${product[type.kind]}.svg`,
+        label: `${this.$t(type.kind === 'forest' ? 'score.ui.forest' : `score.${type.kind}`)} ${product[type.kind] === 'a-plus' ? 'A+' : product[type.kind].toUpperCase()}`
+      }))
     },
     saveAnalysis() {
       if (!this.items.length || this.snapshotMatches) return
@@ -604,25 +556,16 @@ export default {
         }
       })
     },
-    shows(key) { return !this.hiddenSections.includes(key) },
-    showsAny(group) { return VIEW_SECTIONS.find(g => g.key === group).sections.some(this.shows) },
-    // Allergen checks stay visible in every view once the user has chosen allergens
-    presetHidden(preset) { return PRESETS[preset].filter(key => !(key === 'checks' && this.selectedAllergens.length)) },
-    // "See details" on a ring: show that chart if it is hidden, then scroll to it
-    // Nutrient contributors as breakdown rows: grams brought and share of the basket total
+    toggleGlance(key) { this.hiddenGlance = this.hiddenGlance.includes(key) ? this.hiddenGlance.filter(hidden => hidden !== key) : [...this.hiddenGlance, key] },
+    savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients, sort: this.productSort, reverse: this.sortReverse, hiddenGlance: this.hiddenGlance })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
     contributions(items) { return items.map(p => ({ ...p, value: this.$t('score.ui.contribution', { grams: this.formatGrams(p.contribution), percent: this.formatPercent(p.share) }) })) },
-    applyPreset(preset) { this.hiddenSections = this.presetHidden(preset) },
-    toggleSection(key) {
-      this.hiddenSections = this.shows(key) ? [...this.hiddenSections, key] : this.hiddenSections.filter(k => k !== key)
-    },
-    saveView() {
-      this.savedView = { v: VIEW_VERSION, receipt: this.receiptKey, hidden: this.hiddenSections }
-      this.savePreferences()
-    },
-    savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients, sort: this.productSort, reverse: this.sortReverse, view: this.savedView })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
     coverage(known) { return this.$t('score.ui.coverage', { known, total: this.products.length }) },
     formatNumber(value, digits = 0) { return new Intl.NumberFormat(this.$i18n.locale, { maximumFractionDigits: digits }).format(value) },
     formatMoney(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: this.receipt.currency || 'EUR' }).format(value) },
+    formatCarbonReference(value) {
+      const format = new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 1 })
+      return value > 0 && value < 0.001 ? this.$t('score.ui.carbonLessThan', { percent: format.format(0.001) }) : format.format(value)
+    },
     formatPercent(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'percent', maximumFractionDigits: 0 }).format(value) },
     formatMl(value) { return value >= 1000 ? `${this.formatNumber(value / 1000, 2)} L` : `${this.formatNumber(value, 0)} ml` },
     formatGrams(value) { return value === null ? this.$t('score.noData') : value >= 1000 ? `${this.formatNumber(value / 1000, 2)} kg` : `${this.formatNumber(value, 1)} g` },
@@ -636,158 +579,164 @@ export default {
 </script>
 
 <style scoped>
-.score { min-height: 100dvh; padding: 1.5rem; color: #000000; background: #f2f2f7; }
+.score {
+  --score-ink: #17382a;
+  --score-muted: #526156;
+  --score-surface: #fffdf8;
+  --score-border: #b7c0b3;
+  --score-rule: #d8ded2;
+  --score-accent: #245b3f;
+  --score-tint: #e8efe3;
+  --score-focus: #174f78;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased;
+  min-height: 100dvh; padding: 1.5rem; color: var(--score-ink); background: #f4f1e9;
+}
 
+.score :deep(.v-btn:focus-visible), .score :deep(.v-field:focus-within) { outline: 3px solid var(--score-focus); outline-offset: 3px; }
 .score__content { width: min(68rem, 100%); margin: auto; }
-.score__header, .score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
-.score__header { flex-wrap: wrap; margin-bottom: 2rem; }
-.score__brand { font: 700 1.35rem inherit; }
+.score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
 h1, h2 { font-family: inherit; }
-h1 { font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0.3rem 0 1rem; line-height: 1.15; }
+h1 { overflow-wrap: anywhere; font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0.3rem 0 1rem; line-height: 1.15; }
 h2 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.5rem; margin: 0 0 0.5rem; }
 h3 { font-size: 1rem; font-weight: 600; }
-.score__eyebrow { font-size: 0.7rem; color: #6e6e73; letter-spacing: 0.12em; text-transform: uppercase; }
+.score__eyebrow { margin: 0 0 0.4rem; font-size: clamp(0.85rem, 1.2vw, 1rem); line-height: 1.5; color: var(--score-muted); letter-spacing: normal; overflow-wrap: anywhere; }
 .score__alert { margin-bottom: 1rem; }
-.score__pillars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-.score__pillars--single { grid-template-columns: 1fr; }
-.score__view { margin-bottom: 1.5rem; }
-.score__view-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.score__view-current { padding: 0.1rem 0.6rem; border: 1px solid #007aff; border-radius: 1rem; color: #007aff; font-size: 0.75rem; }
-.score__view-summary .score__muted { margin-left: auto; font-weight: 400; }
-.score__view-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 0.6rem; margin-top: 0.85rem; }
-.score__view-preset { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.7rem 0.8rem; border: 1px solid #00000014; border-radius: 0.75rem; text-align: left; transition: background 0.15s ease, border-color 0.15s ease; }
-.score__view-preset:hover { background: #00000008; }
-.score__view-preset[aria-pressed="true"] { background: #007aff1f; border-color: #007aff; }
-.score__view-preset span, .score__view-label { display: flex; flex-direction: column; gap: 0.15rem; }
-.score__view-preset small, .score__view-label small { color: #6e6e73; font-size: 0.75rem; font-weight: 400; line-height: 1.3; }
-.score__view-preset strong, .score__view-label strong { font-size: 0.9rem; font-weight: 600; }
-.score__view-group { margin-top: 1.25rem; }
-.score__view-group h3 { font-size: 0.75rem; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.08em; }
-.score__view-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.25rem 1rem; margin: 0.35rem 0 0; padding: 0; list-style: none; }
-.score__view-list :deep(.v-label) { opacity: 1; padding-left: 0.5rem; }
-.score__pillar { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-.score__card { padding: 1.25rem; border: 1px solid #0000000a; border-radius: 1.25rem; background: #00000005; }
+.score__glance { margin: 0 0 1.5rem; }
+.score__glance-heading { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-bottom: 0.75rem; }
+.score__glance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.6rem; }
+.score__glance-row { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: var(--score-surface); color: inherit; text-align: left; font: inherit; }
+button.score__glance-row { cursor: pointer; transition: background 0.15s ease; }
+button.score__glance-row:hover { background: #e9e9e6; }
+.score__glance-row--warning { background: #f8e9e5; }
+.score__glance-row--caution { background: #faf0da; }
+.score__glance-row--good { background: #e8f0e4; }
+.score__glance-head { display: flex; align-items: center; gap: 0.4rem; min-height: 1.5rem; }
+.score__glance-head > .v-icon:first-child, .score__glance-label { color: var(--accent); }
+.score__glance-label { font-size: 0.95rem; font-weight: 600; }
+.score__glance-meta { margin-left: auto; color: var(--score-muted); font-size: 0.8rem; }
+.score__glance-chevron { color: var(--score-muted); margin-right: -0.3rem; }
+.score__glance-value { display: flex; align-items: baseline; gap: 0.3rem; }
+.score__glance-value strong { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.score__glance-value span { color: var(--score-muted); font-size: 0.95rem; font-weight: 600; }
+.score__glance-grid { grid-auto-flow: row dense; }
+.score__glance-row--open { box-shadow: inset 0 0 0 2px var(--accent); }
+.score__glance-chevron { transition: transform 0.2s ease; }
+.score__glance-detail { grid-column: 1 / -1; padding: 0.85rem 1rem 1rem; border-radius: 14px; background: var(--score-surface); }
+.score__ring-detail { max-width: 34rem; margin: -1rem auto 2rem; }
+.score__glance-row--open .score__glance-chevron { transform: rotate(180deg); }
+
+.score__ring-detail { margin-bottom: 1.5rem; }
+
+.score__pillars { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.score__pillar { min-width: 0; border: 1px solid var(--score-border); border-radius: 0.75rem; background: var(--score-surface); }
+.score__pillar--environment { --score-surface: #eff4ea; --score-tint: #dfead6; background: var(--score-surface); }
+.score__pillar--environment > .score__pillar-heading { color: #245b3f; }
+.score__pillar-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.9rem 1rem; border-radius: 0.7rem; background: var(--score-tint); list-style: none; }
+.score__pillar-heading::-webkit-details-marker { display: none; }
+.score__pillar-heading h2 { margin: 0; }
+.score__pillar[open] > .score__pillar-heading > .v-icon { transform: rotate(180deg); }
+.score__pillar[open] > .score__pillar-heading { border-radius: 0.7rem 0.7rem 0 0; border-bottom: 1px solid var(--score-rule); }
+.score__pillar-body { display: flex; flex-direction: column; padding: 0 1.1rem; }
+.score__pillar-body > .score__card, .score__pillar-body > :deep(.category-chart) { padding: 1.25rem 0; border: 0; border-radius: 0; background: transparent; }
+.score__pillar-body > .score__card:not(:first-child), .score__pillar-body > :deep(.category-chart:not(:first-child)) { border-top: 1px solid var(--score-rule); }
+.score__card { padding: 1.1rem; border: 1px solid var(--score-border); border-radius: 0.75rem; background: var(--score-surface); }
 .score__card-heading { margin-bottom: 0.5rem; }
-.score__stat { font: 700 clamp(1.3rem, 3vw, 1.85rem) inherit; margin: 0.5rem 0; }
-.score__coverage, .score__muted, .score__status, .score__product-meta { font-size: 0.8rem; color: #6e6e73; }
+.score__stat { font-size: clamp(1.3rem, 3vw, 1.85rem); font-weight: 700; margin: 0.5rem 0; }
+.score__coverage, .score__muted, .score__status, .score__product-meta { font-size: 0.8rem; color: var(--score-muted); }
 .score__coverage { margin: 0.45rem 0; }
 .score__status { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem; }
 .score__status button { text-decoration: underline; }
-.score__estimate { font-size: 0.75rem; border: 1px solid #e5e5ea; padding: 0.15rem 0.45rem; border-radius: 1rem; color: #6e6e73; }
+.score__estimate { font-size: 0.75rem; border: 1px solid #71836f; padding: 0.15rem 0.45rem; border-radius: 1rem; color: var(--score-muted); }
 .score__section { margin-top: 1.25rem; }
 .score__section > h2 { margin-bottom: 0.85rem; }
 summary { cursor: pointer; font-weight: 600; }
-summary:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid #007aff; outline-offset: 3px; }
+summary:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--score-focus); outline-offset: 3px; }
 .score__card > details { margin-top: 0.85rem; font-size: 0.85rem; }
-.score__nested { padding: 0.65rem 0; border-bottom: 1px solid #e5e5ea; }
+.score__nested { padding: 0.65rem 0; border-bottom: 1px solid var(--score-rule); }
 .score__nested:last-child { border-bottom: 0; }
-.score__metric-summary { display: flex; align-items: center; gap: 0.6rem; }
-.score__metric-summary > strong { margin-left: auto; }
-.score__metric-summary::before { content: '+'; color: #6e6e73; }
-details[open] > .score__metric-summary::before { content: '−'; }
 .score__spaced { margin-top: 1rem; }
 .score__heading-tools { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0; }
 .score__shopping-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem 1.5rem; list-style: none; }
 .score__shopping-summary::-webkit-details-marker { display: none; }
-.score__shopping-title { font-family: inherit; font-size: 1.15rem; }
-.score__shopping-total { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
-.score__shopping-total strong { font-size: 1.1rem; }
-.score__shopping-toggle { display: inline-flex; align-items: center; gap: 0.35rem; margin-left: auto; color: #007aff; font-size: 0.85rem; }
-.score__hide-products { display: none; }
-.score__shopping[open] .score__show-products { display: none; }
-.score__shopping[open] .score__hide-products { display: inline; }
+.score__receipt-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem 1.5rem; margin: 1rem 0 0; padding: 1rem 0; border-top: 1px solid var(--score-rule); border-bottom: 1px solid var(--score-rule); }
+.score__receipt-place { min-width: 0; flex: 1; }
+.score__receipt-place h3 { margin: 0; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.score__receipt-place p { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--score-muted); }
+.score__receipt-totals { display: flex; align-items: center; gap: 1.5rem; }
+.score__receipt-count { font-size: 0.85rem; color: var(--score-muted); white-space: nowrap; }
+.score__receipt-amount { padding-left: 1.5rem; border-left: 1px solid var(--score-rule); text-align: right; }
+.score__receipt-amount dt { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; font-size: 0.75rem; color: var(--score-muted); }
+.score__receipt-amount dd { margin: 0.15rem 0 0; font-size: 1.4rem; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.score__receipt-incomplete { flex-basis: 100%; margin: 0; }
+.score__section-title { font-family: inherit; font-size: clamp(1.125rem, 1.5vw, 1.25rem); font-weight: 600; line-height: 1.3; letter-spacing: normal; text-transform: none; }
+.score__shopping-toggle { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--score-accent); font-size: 0.85rem; }
 .score__shopping[open] .score__shopping-toggle .v-icon { transform: rotate(180deg); }
-.score__list-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; }
+.score__shopping-controls { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; max-width: 100%; color: var(--score-accent); }
 .score__spending-coverage { display: flex; align-items: center; gap: 0.5rem; }
-.score__sort { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; width: min(100%, 28rem); }
-.score__sort > .v-select { min-width: 13rem; flex: 1; }
-.score__sort-order { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.6rem; border: 1px solid #e5e5ea; border-radius: 0.5rem; color: #007aff; font-size: 0.75rem; }
-.score__sort-order:hover { background: #007aff14; }
-.score__product-grades { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem 0.75rem; }
-.score__product-grades .score__product-grade { display: flex; align-items: center; gap: 0.4rem; }
-.score__product-grades strong { color: #000000; }
+.score__sort { display: flex; align-items: center; gap: 0.15rem; color: var(--score-accent); min-width: 0; }
+.score__sort-button { min-width: 0; max-width: 100%; }
+.score__sort-button :deep(.v-btn__content) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score__sort-button { color: var(--score-accent); text-transform: none; letter-spacing: normal; font-weight: 500; }
+.score__sort-label { color: var(--score-muted); margin-right: 0.5rem; font-weight: 400; }
+.score__sort-menu { background: #fffdf8; color: #17382a; min-width: 16rem; border: 1px solid #b7c0b3; border-radius: 0.5rem; }
+.score__sort-menu :deep(.v-list-subheader) { color: #526156; }
+.score__product-grades { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.score__product-badge { display: block; height: 2.5rem; width: auto; max-width: 100%; object-fit: contain; }
 .score__shopping .score__product-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; margin: 0; }
-.score__shopping .score__product-meta strong { color: #000000; font-size: 0.9rem; }
-.score__contribution { display: grid; grid-template-columns: minmax(3rem, 6rem) 1fr; align-items: center; gap: 0.6rem; }
-.score__contribution-bar { height: 0.4rem; border-radius: 1rem; background: #e5e5ea; overflow: hidden; }
-.score__contribution-bar span { display: block; height: 100%; background: #007aff; }
+.score__shopping .score__product-meta strong { color: var(--score-ink); font-size: 0.9rem; }
+.score__carbon-total { margin: 0.75rem 0 0.25rem; font-size: 1.85rem; font-weight: 700; }
+.score__carbon-products { list-style: none; padding: 0; margin: 1.25rem 0 0; }
+.score__carbon-products li + li { margin-top: 1rem; }
+.score__carbon-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; margin-bottom: 0.4rem; font-size: 0.85rem; }
+.score__carbon-name { min-width: 0; overflow-wrap: anywhere; }
+.score__carbon-row strong { flex-shrink: 0; font-size: 0.8rem; }
+.score__carbon-row a { color: inherit; text-decoration-color: var(--score-muted); text-underline-offset: 3px; }
+.score__carbon-row a:focus-visible { outline: 3px solid var(--score-focus); outline-offset: 3px; }
+.score__carbon-bar { height: 0.35rem; border-radius: 0.1rem; background: var(--score-rule); overflow: hidden; }
+.score__carbon-bar > span { display: block; height: 100%; background: var(--score-accent); }
+.score__carbon-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+.score__carbon-metrics strong { display: block; font-size: 1.85rem; font-weight: 700; overflow-wrap: anywhere; }
+.score__carbon-metrics span { display: block; margin-top: 0.25rem; font-size: 0.8rem; color: var(--score-muted); }
+.score__carbon-reference-bar { height: 0.6rem; }
+.score__carbon-reference-value { margin: 0.65rem 0 0; font-size: 0.8rem; color: var(--score-muted); }
+.score__carbon-reference-note { margin: 0.3rem 0 1rem; color: var(--score-muted); font-size: 0.75rem; }
+.score__carbon-breakdown { border-top: 1px solid var(--score-rule); padding-top: 0.85rem; }
+.score__carbon-breakdown summary { font-weight: 500; }
+.score__settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; list-style: none; }
+.score__settings-heading::-webkit-details-marker { display: none; }
+.score__settings-heading > span { display: flex; align-items: center; gap: 0.4rem; }
+details[open] > .score__settings-heading .score__expand-icon { transform: rotate(90deg); }
+.score__settings-panel { --score-ink: #17382a; --score-muted: #526156; --score-accent: #245b3f; --score-tint: #e8efe3; --score-focus: #174f78; color: var(--score-ink); background: #fffdf8; padding: 1rem; width: min(24rem, calc(100vw - 2rem)); max-height: 70vh; overflow-y: auto; border: 1px solid #b7c0b3; border-radius: 0.75rem; }
+.score__product-additives { margin: 0.3rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--score-muted); }
+.score__product-allergens { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+.score__settings-panel, .score__sort-menu { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.score__allergen-mark { display: inline-flex; align-items: flex-start; gap: 0.35rem; font-size: 0.75rem; font-weight: 400; padding: 0.2rem 0.5rem; border-radius: 0.3rem; background: #eef0ed; color: #435046; }
+.score__allergen-mark--contains { background: #f9e5df; color: #803022; }
+.score__allergen-mark--mayContain { background: #fff0dc; color: #703b12; }
+.score__allergen-mark strong { font-weight: 600; }
+.score__allergen-mark > .v-icon { flex-shrink: 0; margin-top: 0.1rem; }
+.score__settings-active { background: var(--score-tint); color: var(--score-accent); }
+.score__allergen-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem 0.5rem; margin: 0.75rem 0; }
+.score__allergen-choices label { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem; font-size: 0.85rem; border-radius: 0.3rem; cursor: pointer; }
+.score__allergen-choices label:hover { background: #f2f3ee; }
+.score__allergen-choices label:has(input:checked) { background: var(--score-tint); font-weight: 600; }
+.score__allergen-choices input { width: 1rem; height: 1rem; flex-shrink: 0; }
+.score__allergen-key { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; border-top: 1px solid #d8ded2; padding-top: 0.65rem; }
+.score__allergen-key span { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--score-muted); font-size: 0.75rem; }
 .score__choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
-.score__choices label { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.65rem; font-size: 0.85rem; border: 1px solid #00000014; border-radius: 1rem; cursor: pointer; }
-.score__choices label:has(input:checked) { background: #007aff26; border-color: #007aff; }
-input { accent-color: #92c76d; }
+.score__choices label { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.65rem; font-size: 0.85rem; border: 1px solid #71836f; border-radius: 1rem; cursor: pointer; }
+.score__choices label:has(input:checked) { background: var(--score-tint); border-color: var(--score-accent); }
+input { accent-color: var(--score-accent); }
 .score__reasons { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
-.score__reason { background: #ee81002b; color: #ffe0b4; border: 1px solid #ee810052; border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
-.score__product-grade { color: #6e6e73; font-size: 0.75rem; padding-right: 0.6rem; }
+.score__reason { background: #fff0dc; color: #703b12; border: 1px solid #a97438; border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
 .score__product-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
 .score__actions { flex-wrap: wrap; margin-top: 2rem; }
 .score__state { text-align: center; padding: 3rem; }
-/* Apple Health-like theme: black background, grey cards without borders, system font,
-   one accent color per category (pink health, green planet, blue actions) */
-.score { --card: #ffffff; --card-raised: #f2f2f7; --separator: #e5e5ea; --muted: #6e6e73; --blue: #007aff; --pink: #ff2d55; --green: #248a3d; --orange: #ff9500;
-  background: #f2f2f7; color: #000; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-.score__brand { font-size: 1rem; font-weight: 600; color: var(--muted); }
-h1 { font-size: clamp(2rem, 5vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; }
-h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.01em; }
-h3 { font-size: 0.95rem; font-weight: 600; }
-.score__eyebrow { color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
-.score__card { padding: 1rem 1.1rem; border: 0; border-radius: 14px; background: var(--card); }
-.score__pillars { gap: 1.25rem; }
-.score__pillar { gap: 0.75rem; }
-.score__pillar--health > h2, .score__pillar--health h3, .score__pillar--health :deep(.category-chart h3) { color: var(--pink); }
-.score__pillar--environment > h2, .score__pillar--environment h3, .score__pillar--environment :deep(.category-chart h3) { color: var(--green); }
-.score__stat { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
-.score__coverage, .score__muted, .score__status, .score__product-meta { color: var(--muted); }
-.score__estimate { border: 0; background: var(--card-raised); color: var(--muted); }
-.score__reason { border: 0; background: #ff950026; color: #c93400; }
-.score__shopping-title { font-weight: 700; }
-.score__view-current { border: 0; background: #007aff1f; color: var(--blue); }
-.score__view-preset { border: 0; background: var(--card-raised); }
-.score__view-preset[aria-pressed="true"] { background: #007aff1f; box-shadow: inset 0 0 0 1.5px var(--blue); }
-.score__choices label { border: 0; background: var(--card-raised); }
-.score__choices label:has(input:checked) { background: #007aff26; box-shadow: inset 0 0 0 1.5px var(--blue); }
-.score__contribution-bar span { background: var(--pink); }
-.score__sort-order { border: 0; background: var(--card-raised); }
-.score__glance { margin: 0 0 1.5rem; }
-.score__glance > h2 { margin-bottom: 0.75rem; }
-.score__glance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.6rem; }
-.score__glance-row { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: var(--card); color: inherit; text-align: left; font: inherit; }
-button.score__glance-row { cursor: pointer; transition: background 0.15s ease; }
-button.score__glance-row:hover { background: #fafafa; }
-.score__glance-head { display: flex; align-items: center; gap: 0.4rem; min-height: 1.5rem; }
-.score__glance-head > .v-icon:first-child, .score__glance-label { color: var(--accent); }
-.score__glance-label { font-size: 0.95rem; font-weight: 600; }
-.score__glance-meta { margin-left: auto; color: var(--muted); font-size: 0.8rem; }
-.score__glance-chevron { color: #c7c7cc; margin-right: -0.3rem; }
-.score__glance-value { display: flex; align-items: baseline; gap: 0.3rem; }
-.score__glance-value strong { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
-.score__glance-value span { color: var(--muted); font-size: 0.95rem; font-weight: 600; }
-.score__glance-grid { grid-auto-flow: row dense; }
-.score__glance-row--open { box-shadow: inset 0 0 0 2px var(--accent); }
-.score__glance-chevron { transition: transform 0.2s ease; }
-.score__glance-row--open .score__glance-chevron, .score__insight[aria-expanded="true"] .score__glance-chevron { transform: rotate(180deg); }
-.score__glance-detail { grid-column: 1 / -1; padding: 0.85rem 1rem 1rem; border-radius: 14px; background: var(--card); }
-.score__ring-detail { max-width: 34rem; margin: -1rem auto 2rem; }
-.score__insight-item { padding: 0; }
-.score__insight { display: flex; align-items: center; gap: 0.85rem; width: 100%; min-height: 2.75rem; padding: 1rem 1.1rem; color: inherit; text-align: left; font: inherit; cursor: pointer; }
-.score__insight .score__glance-chevron { margin-left: auto; flex: none; }
-.score__insight-detail { padding: 0 1.1rem 1rem 3.2rem; }
-.score__insights { display: grid; gap: 0.6rem; margin: 0 0 1rem; padding: 0; list-style: none; }
-.score__insight p { margin: 0; font-size: 0.95rem; font-weight: 500; line-height: 1.35; }
-.score__insight--alert .v-icon { color: #d70015; }
-.score__insight--warning .v-icon { color: var(--orange); }
-.score__insight--good .v-icon { color: var(--green); }
-/* Expandable rows end with a chevron, like the disclosure rows of iOS */
-.score details > summary { display: flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; list-style: none; }
-.score details > summary::-webkit-details-marker { display: none; }
-.score details > summary:not(.score__metric-summary):not(.score__shopping-summary)::after { content: ''; flex: none; width: 0.5rem; height: 0.5rem; margin-left: auto; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform 0.2s ease; }
-.score details[open] > summary:not(.score__metric-summary):not(.score__shopping-summary)::after { transform: rotate(45deg); }
-.score__view-summary .score__muted { margin-left: auto; }
-.score__view-summary::after { margin-left: 0.75rem !important; }
-@media (prefers-reduced-motion: reduce) { .score * { transition: none !important; } }
-input { accent-color: var(--blue); }
 @media (max-width: 760px) { .score__heading { flex-wrap: wrap; } .score__heading-tools { margin-bottom: 1rem; }
+.score__receipt-place { flex-basis: 100%; }
+.score__receipt-totals { width: 100%; justify-content: space-between; }
 .score__shopping-summary { gap: 0.5rem 1rem; } .score__shopping-title { flex-basis: 100%; }
-.score__list-toolbar { align-items: stretch; } .score__sort { width: 100%; }
+.score__sort-button { font-size: 0.8rem; }
 .score__shopping .score__product-meta { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; gap: 0.5rem; } .score { padding: 1rem; }
-.score__pillars { grid-template-columns: 1fr; gap: 1.5rem; } }
+}
 </style>
