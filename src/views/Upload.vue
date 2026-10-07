@@ -152,14 +152,19 @@ export default {
       return []
     },
     mapReceiptItem(row) {
+      const predicted = row.predicted_data && typeof row.predicted_data === 'object'
+        ? row.predicted_data
+        : {}
       const data = row.data && typeof row.data === 'object' ? row.data : {}
-      const barcode = data.product_code || data.barcode || row.product_code || null
-      const categoryTag = data.category_tag || row.category_tag || null
+      const source = Object.keys(predicted).length ? predicted : data
+      const barcode = source.product_code || source.barcode || null
+      const categoryTag = source.category_tag || null
+      const price = source.price ?? source.price_total ?? null
       return {
         id: row.id,
-        name: data.product_name || data.name || row.product_name || '',
-        price: data.price ?? row.price ?? null,
-        quantity: data.quantity ?? row.quantity ?? 1,
+        name: source.product_name || source.name || '',
+        price,
+        quantity: source.quantity ?? 1,
         barcode: barcode || null,
         categoryTag: categoryTag || null,
         off: null
