@@ -36,16 +36,16 @@ export default {
 </script>
 <style scoped>
 .product-list { list-style: none; padding: 0; margin: 0.5rem 0 0; }
-.product-list li { padding: 0.65rem 0; border-bottom: 1px solid #f7fbf414; }
+.product-list li { padding: 0.65rem 0; border-bottom: 1px solid var(--score-rule, #d8ded2); }
 .product-list li:last-child { border-bottom: 0; }
 .product-list__name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
 .product-list__identity { min-width: 0; overflow-wrap: anywhere; }
 .product-list__identity p { margin: 0.25rem 0 0; }
-.product-list--horizontal li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(7rem, 0.65fr) auto; align-items: center; gap: 1.25rem; padding: 1rem 0; }
-@media (max-width: 960px) { .product-list--horizontal li { grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; } .product-list--horizontal .product-list__identity, .product-list--horizontal li > :nth-child(2) { grid-column: 1 / -1; } .product-list--horizontal li > :last-child { grid-column: 2; justify-self: end; } }
-a { color: inherit; text-underline-offset: 3px; text-decoration-color: #bad7b86b; }
-a:hover { color: #c9e88e; }
-a:focus-visible { outline: 2px solid #c9e88e; outline-offset: 3px; }
-.product-list__estimate, .product-list__unknown { color: #bdcebe; font-size: 0.75rem; }
-.product-list__estimate { border: 1px solid #b9cdbd44; border-radius: 1rem; padding: 0.1rem 0.4rem; }
+.product-list--horizontal li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.5fr) minmax(7rem, 0.65fr); align-items: center; gap: 1.25rem; padding: 1rem 0; }
+@media (max-width: 960px) { .product-list--horizontal li { grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; } .product-list--horizontal .product-list__identity, .product-list--horizontal li > :nth-child(2) { grid-column: 1 / -1; } .product-list--horizontal li > :last-child { grid-column: 1 / -1; justify-self: stretch; } }
+a { color: inherit; text-underline-offset: 3px; text-decoration-color: currentColor; }
+a:hover { color: var(--score-accent, #245b3f); }
+a:focus-visible { outline: 3px solid var(--score-focus, #174f78); outline-offset: 3px; }
+.product-list__estimate, .product-list__unknown { color: var(--score-muted, #526156); font-size: 0.75rem; }
+.product-list__estimate { border: 1px solid #71836f; border-radius: 1rem; padding: 0.1rem 0.4rem; }
 </style>

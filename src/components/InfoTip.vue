@@ -23,9 +23,9 @@ export default {
 }
 </script>
 <style scoped>
-.info-tip { flex: none; width: 1.35rem; height: 1.35rem; border: 1px solid currentColor; border-radius: 50%; color: #b9cdbd; font: italic 600 0.85rem Georgia, serif; cursor: pointer; }
-.info-tip:focus-visible { outline: 2px solid #c9e88e; outline-offset: 3px; }
-.info-tip__panel { background: #f7fbf4; color: #16382a; padding: 1rem; border-radius: 0.75rem; font-size: 0.85rem; box-shadow: 0 6px 24px #0004; }
+.info-tip { flex: none; width: 1.6rem; height: 1.6rem; border: 1px solid currentColor; border-radius: 50%; color: var(--score-muted, #526156); font: italic 600 0.85rem Georgia, serif; cursor: pointer; }
+.info-tip:focus-visible { outline: 3px solid var(--score-focus, #174f78); outline-offset: 3px; }
+.info-tip__panel { background: #fffdf8; color: #17382a; border: 1px solid #71836f; padding: 1rem; border-radius: 0.75rem; font-size: 0.85rem; box-shadow: 0 6px 24px #0004; }
 .info-tip__panel p { margin: 0.5rem 0; }
-.info-tip__panel a { display: block; color: #246540; margin-top: 0.4rem; }
+.info-tip__panel a { display: block; color: #245b3f; margin-top: 0.4rem; }
 </style>

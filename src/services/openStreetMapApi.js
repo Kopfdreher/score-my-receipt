@@ -84,6 +84,29 @@ export default {
   },
 
   /**
+   * Photon reverse search by coordinates
+   * @param {number} lat latitude
+   * @param {number} lon longitude
+   */
+  openstreetmapPhotonReverse(lat, lon) {
+    const url = `${constants.OSM_PHOTON_REVERSE_URL}?lat=${lat}&lon=${lon}&limit=${LOCATION_SEARCH_LIMIT}&osm_tag=shop`
+    return fetch(url, {
+      method: 'GET',
+      headers: withUserAgent(OP_DEFAULT_HEADERS)
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Photon reverse failed (${response.status})`)
+        }
+        return response.json()
+      })
+      .then((data) => data.features || [])
+      .then((data) => data.filter((location) => (
+        !constants.NOMINATIM_RESULT_TYPE_EXCLUDE_LIST.includes(location.properties?.osm_value)
+      )))
+  },
+
+  /**
    * OpenStreetMap search by query
    * @param {string} q search query
    * @param {'nominatim'|'photon'} source search backend

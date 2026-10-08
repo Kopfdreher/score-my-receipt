@@ -1,8 +1,7 @@
 import constants from '../constants'
 
-const OP_DEFAULT_HEADERS = {
-  'Content-Type': 'application/json'
-}
+// No custom headers on these GET requests: a Content-Type header makes the browser send a
+// CORS preflight, which Open Food Facts rejects, so every product lookup failed.
 const SEARCH_URL = import.meta.env.DEV
   ? '/search-api/search'
   : 'https://search.openfoodfacts.org/search'
@@ -129,7 +128,7 @@ function wait(ms) {
 
 // Shared by single and batch lookups. Keep each method's existing response shape.
 function fetchProducts(url, attempt = 0) {
-  return fetch(url, { method: 'GET', headers: OP_DEFAULT_HEADERS })
+  return fetch(url, { method: 'GET' })
     .then((response) => {
       if (response.status === 404) return null
       if (response.status === 429 || response.status >= 500) throw new TemporaryError(response.status)
@@ -334,10 +333,7 @@ export default {
     })
     const url = `${constants.OFF_SEARCH_URL}?${params.toString()}`
 
-    return fetch(url, {
-      method: 'GET',
-      headers: OP_DEFAULT_HEADERS
-    })
+    return fetch(url, { method: 'GET' })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`OFF category search failed (${response.status})`)

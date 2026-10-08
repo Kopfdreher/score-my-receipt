@@ -278,10 +278,10 @@
         "e": "Lowest nutritional quality"
       },
       "nova": {
-        "1": "Unprocessed or minimally processed",
-        "2": "Processed culinary ingredient",
-        "3": "Processed food",
-        "4": "Ultra-processed food"
+        "1": "Unprocessed / minimally processed",
+        "2": "Culinary ingredients",
+        "3": "Processed",
+        "4": "Ultra-processed"
       },
       "greenScore": {
         "aPlus": "Very low environmental impact",
@@ -332,8 +332,9 @@
       "unknown": "no EFSA overexposure evaluation available yet"
     },
     "ui": {
-      "eyebrow": "Your shopping, explained",
-      "title": "Inside your basket",
+      "eyebrow": "WHAT YOU’RE REALLY BUYING",
+      "title": "Receipt overview",
+      "shopOverview": "{shop} · Receipt overview",
       "health": "Health",
       "environment": "Environment",
       "processing": "Processing · NOVA",
@@ -348,9 +349,12 @@
       "productsByGrade": "Explore grades & products",
       "viewAdditives": "Explore additives",
       "additives": "{additives} in {products}",
+      "additivesFoundIn": "Found in {n} product | Found in {n} products",
       "withoutAdditives": "{count} products without listed additives",
       "unknownAdditives": "Unknown for {count} products",
-      "shoppingSummary": "Your shopping",
+      "shoppingSummary": "Your receipt",
+      "unknownShop": "Shop unknown",
+      "unknownReceiptDate": "Date unknown",
       "totalSpent": "Total spent",
       "knownSpending": "Known spending",
       "viewProducts": "View products",
@@ -360,31 +364,56 @@
       "nutritionDetails": "Nutrient totals",
       "wholeBasket": "For the quantities purchased",
       "contributingProducts": "Products included",
+      "carbonRelativeLabel": "of weekly reference",
+      "carbonLessThan": "less than {percent}",
+      "carbonBasketUnit": "kg CO₂e · this basket",
+      "carbonWeekly": "Weekly reference: {kg} kg CO₂e / person",
+      "carbonBreakdown": "Which products contribute most?",
+      "carbonReferenceNote": "2050 reference · All activities, not just food",
+      "carbonReferenceInfo": "Nos Gestes Climat uses 2,000 kg CO₂e per person per year as a collective reference for 2050. Dividing by 52 gives about 38.5 kg per week, across all activities. The comparison covers the whole basket, which may feed several people or last several days. It is not a measure of your weekly footprint or remaining allowance.",
       "contribution": "{grams} · {percent} of the basket total",
       "labels": "Organic & fair trade",
-      "closerLook": "Take a closer look",
       "personalise": "Optional checks",
       "remembered": "Your choices are remembered on this device.",
       "allergenCheck": "Check allergens",
+      "allergenChooseHint": "Choose what to check. Results appear beside each product.",
+      "allergenRowStatus": {
+        "contains": "Contains",
+        "mayContain": "May contain",
+        "unknown": "No information",
+        "notListed": "Not listed"
+      },
+      "allergenSettings": "Allergen settings",
+      "nutrientSettings": "Products worth reconsidering settings",
       "nutrientFilters": "Also highlight",
       "allergenResults": "Your allergen checks",
-      "highlights": "Products worth reviewing",
+      "highlights": "Products worth reconsidering",
       "highlightCount": "{count} of {total} products highlighted",
       "noHighlights": "No products match the selected checks. Missing data is not an all-clear.",
       "allProducts": "View all products ({count})",
-      "sortBy": "Order products by",
+      "sortBy": "Sort",
+      "priceSortInfo": {
+        "price": "Total spent on each product, including all quantities bought.",
+        "unitPrice": "Total spent divided by the number of items bought."
+      },
+      "sortGroups": {
+        "shopping": "Shopping",
+        "health": "Health",
+        "environment": "Environment"
+      },
       "reverseOrder": "Reverse order",
       "sorts": {
         "receipt": "Receipt order",
         "review": "Highlighted products first",
         "nutriscore": "Nutri-Score",
-        "nova": "NOVA processing level",
+        "nova": "Processing level (NOVA)",
         "greenScore": "Green-Score",
         "forest": "Forest footprint",
-        "co2": "Carbon footprint",
-        "price": "Amount spent",
+        "co2": "Carbon footprint (CO₂e)",
+        "price": "Total spent",
+        "unitPrice": "Price per item",
         "weight": "Weight",
-        "name": "Name A–Z",
+        "name": "Product name",
         "salt": "Salt per 100 g/ml",
         "sugars": "Sugar per 100 g/ml",
         "fat": "Fat per 100 g/ml"
@@ -417,6 +446,10 @@
         "price": {
           "normal": "Highest first",
           "reversed": "Lowest first"
+        },
+        "unitPrice": {
+          "normal": "Highest price per item first",
+          "reversed": "Lowest price per item first"
         },
         "weight": {
           "normal": "Heaviest first",
@@ -474,7 +507,7 @@
         "sulphur-dioxide-and-sulphites": "Sulphites"
       },
       "info": {
-        "nutriscore": "Published Nutri-Score grades, A–E. Each distinct product counts once; no basket average is calculated. Unknown includes products without a published grade. Select a grade to see its products.",
+        "nutriscore": "Published Nutri-Score grades, A–E. Percentages use all distinct products in the receipt, including unknown grades. Each distinct product counts once; no basket average is calculated. Unknown includes products without a published grade. Select a grade to see its products.",
         "nova": "Processing groups, 1–4. Group 4 is ultra-processed. Confirmed raw-produce references are classified as group 1 using the NOVA definition and labelled Estimated. Other missing groups stay unknown.",
         "greenScore": "Published Green-Score grades, A+–F. Each distinct product counts once. No average or category grade is invented; unknown products stay visible. Select a grade to see its products.",
         "forest": "Open Food Facts forest footprint 2026 grades, A–D. This describes ingredient-associated deforestation risk, not confirmed forest clearing. Only published grades are used; older or missing assessments stay unknown.",
@@ -498,6 +531,65 @@
         "delete": "Delete",
         "close": "Close",
         "error": "Could not save changes on this device. Browser storage may be full or unavailable."
+      },
+      "rings": {
+        "label": "Your basket scores",
+        "slide": "{index} of {total}: {title}",
+        "previous": "Previous score",
+        "next": "Next score",
+        "details": "See details",
+        "noData": "no grade",
+        "noGrade": "No product has this grade yet",
+        "verdict": "{good} of {rated} rated products",
+        "caption": {
+          "nutriscore": "Nutritional quality",
+          "nova": "Level of processing",
+          "greenScore": "Environmental impact",
+          "forest": "Deforestation risk"
+        },
+        "good": {
+          "nutriscore": "A or B",
+          "nova": "NOVA 1 or 2",
+          "greenScore": "A+ to B",
+          "forest": "A or B"
+        },
+        "hideDetails": "Hide details",
+        "calculation": "The percentage is the share of rated products in the grades shown in the center. Products without a grade are excluded; coverage is shown below. This is not an average basket score."
+      },
+      "glance": {
+        "title": "At a glance",
+        "settings": "Choose what to show",
+        "highNutrient": "{count} products marked high per 100 g/ml by Open Food Facts",
+        "lowNutrient": "All products marked low per 100 g/ml by Open Food Facts",
+        "carbonHalf": "At least 50% of the weekly CO₂ reference",
+        "carbonFull": "At least 100% of the weekly CO₂ reference",
+        "highlights": "Products worth reconsidering",
+        "coverage": "{known} of {total}",
+        "spending": "Spending",
+        "weight": "Basket weight",
+        "sugars": "Sugar",
+        "salt": "Salt",
+        "fat": "Fat",
+        "saturatedFat": "Saturated fat",
+        "additives": "Additives",
+        "co2": "CO₂ emissions",
+        "organic": "Organic",
+        "fairTrade": "Fair trade",
+        "units": {
+          "products": "product | products",
+          "additives": "additive | additives"
+        }
+      },
+      "breakdown": {
+        "none": "No product in this basket.",
+        "missing": "Unknown for {n} product | Unknown for {n} products",
+        "spending": "What each product cost, most expensive first.",
+        "weight": "Weight of each product bought. Drinks count as 1 ml ≈ 1 g.",
+        "nutrient": "{total} in the whole basket. Where it comes from:",
+        "co2": "Estimated emissions of each product, highest first.",
+        "organic": "Products with an organic label.",
+        "fairTrade": "Products with a fair-trade label.",
+        "additives": "Additives found in your products. Open one to see where it is."
       }
     },
     "history": "History"

@@ -45,6 +45,16 @@ const sample = [{ name: 'B', nutriscore: 'e', lineTotal: 2 }, { name: 'A', nutri
 assert.deepEqual(sortProducts(sample, 'nutriscore').map(p => p.name), ['B', 'C', 'A'], 'grades needing attention first, unknown last')
 assert.deepEqual(sortProducts(sample, 'nutriscore', true).map(p => p.name), ['C', 'B', 'A'], 'reversed, unknown still last')
 assert.deepEqual(sortProducts(sample, 'price').map(p => p.name), ['A', 'B', 'C'])
+const priceSample = [
+  { name: 'Multipack purchase', lineTotal: 12, quantity: 4 },
+  { name: 'Single item', lineTotal: 5, quantity: 1 },
+  { name: 'Unknown', lineTotal: null, quantity: 2 },
+  { name: 'Free', lineTotal: 0, quantity: 1 }
+]
+assert.deepEqual(sortProducts(priceSample, 'price').map(p => p.name), ['Multipack purchase', 'Single item', 'Free', 'Unknown'])
+assert.deepEqual(sortProducts(priceSample, 'unitPrice').map(p => p.name), ['Single item', 'Multipack purchase', 'Free', 'Unknown'])
+assert.deepEqual(sortProducts(priceSample, 'unitPrice', true).map(p => p.name), ['Free', 'Multipack purchase', 'Single item', 'Unknown'])
+assert.equal(sortProducts([{ name: 'Invalid quantity', lineTotal: 5, quantity: 0 }, products[0]], 'unitPrice')[0], products[0], 'merged purchases use total divided by quantity; invalid quantities stay last')
 assert.deepEqual(sortProducts(sample, 'name').map(p => p.name), ['A', 'B', 'C'])
 assert.deepEqual(sortProducts(sample, 'receipt').map(p => p.name), ['B', 'A', 'C'])
 assert.equal(additiveSummary(products).list.length, 1)
@@ -89,3 +99,13 @@ for (const key of ['salt', 'sugars', 'fat']) {
   const sorted = sortProducts([{ name: 'Missing', nutrients: {} }, { name: 'Zero', nutrients: { [field]: 0 } }, { name: 'High', nutrients: { [field]: 20 } }], key)
   assert.deepEqual(sorted.map(p => p.name), ['High', 'Zero', 'Missing'])
 }
+
+const carbonProducts = [{ id: 'small', co2Kg: 2 }, { id: 'unknown', co2Kg: null }, { id: 'large', co2Kg: 8 }, { id: 'zero', co2Kg: 0 }]
+const carbon = carbonTotal(carbonProducts)
+assert.equal(carbon.kg, 10)
+assert.equal(carbon.known, 3)
+assert.deepEqual(carbon.items.map(p => p.id), ['large', 'small', 'zero'])
+assert.equal(carbon.items[0].share, 0.8)
+assert.equal(carbon.items.reduce((sum, p) => sum + p.share, 0), 1)
+assert.equal(carbonTotal([{ co2Kg: 0 }]).items[0].share, 0, 'zero total has a finite contribution')
+assert.deepEqual(carbonProducts.map(p => p.id), ['small', 'unknown', 'large', 'zero'], 'source products are not reordered')
