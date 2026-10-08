@@ -213,6 +213,13 @@
 
 <script>
 import openFoodFactsCategories from '@/services/openFoodFactsCategories'
+import {
+  isCategoryPriced as categoryPriced,
+  parseOptionalNumber,
+  parseQuantity as parseItemQuantity,
+  quantityStep as itemQuantityStep,
+  quantityUnitKey as itemQuantityUnitKey
+} from '@/utils/reviewItem'
 
 const DELETE_WIDTH = 88
 const OPEN_THRESHOLD = 40
@@ -239,7 +246,6 @@ export default {
     'scan',
     'barcode-commit',
     'preview',
-    'category-confirm',
     'swipe-open',
     'swipe-close'
   ],
@@ -290,13 +296,13 @@ export default {
       return this.$t('review.barcodePlaceholder')
     },
     isCategoryPriced() {
-      return Boolean(!this.item.barcode && this.item.categoryTag)
+      return categoryPriced(this.item)
     },
     quantityUnitKey() {
-      return this.isCategoryPriced ? 'review.unitKg' : 'review.unitPackage'
+      return itemQuantityUnitKey(this.item)
     },
     quantityStep() {
-      return this.isCategoryPriced ? '0.001' : '1'
+      return itemQuantityStep(this.item)
     },
     filteredCategoryOptions() {
       const options = openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
@@ -366,14 +372,10 @@ export default {
   },
   methods: {
     parseNumber(value) {
-      if (value === '' || value === null || value === undefined) return null
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : null
+      return parseOptionalNumber(value)
     },
     parseQuantity(value) {
-      const parsed = this.parseNumber(value)
-      if (parsed === null || parsed <= 0) return 1
-      return parsed
+      return parseItemQuantity(value)
     },
     normalizeOptional(value) {
       const trimmed = String(value || '').trim()
@@ -406,7 +408,6 @@ export default {
       })
       if (tag) {
         this.categorySearch = openFoodFactsCategories.getCategoryName(tag) || ''
-        this.$emit('category-confirm', this.item.id)
       } else {
         this.categorySearch = ''
       }

@@ -18,10 +18,6 @@ const ORIGIN_BY_ID = new Map(
 )
 
 export default {
-  getOriginOptions() {
-    return ORIGIN_OPTIONS
-  },
-
   getOriginName(originId) {
     if (!originId) return null
     return ORIGIN_BY_ID.get(originId) || String(originId).replace(/^en:/, '')

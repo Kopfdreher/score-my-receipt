@@ -101,6 +101,7 @@ export default {
       openPricesApi.createProof(file, { date, currency })
         .then((proof) => {
           const proofId = proof && proof.id
+          if (!proofId) return Promise.reject(new Error('Missing proof id'))
           this.phase = 'extracting'
           return this.pollReceiptItems(proofId, 0)
             .then((rows) => ({ proofId, rows }))
@@ -246,7 +247,7 @@ export default {
       const region = (locale.split('-')[1] || '').toUpperCase()
       if (region === 'US') return 'USD'
       if (region === 'GB') return 'GBP'
-	  if (region == 'COL') return 'COP'
+      if (region === 'CO') return 'COP'
       return 'EUR'
     },
     clearPoll() {

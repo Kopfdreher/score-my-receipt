@@ -20,6 +20,13 @@ assert.equal(checking.status, 'draft', 'not scored until analysis exists')
 receipt.items[0].verified = false
 receipt.items[0].priceSent = true
 assert.equal(receiptSignature(receipt), snapshot.signature, 'review flags do not alter the analysis')
+receipt.items[0].organic = true
+assert.notEqual(receiptSignature(receipt), snapshot.signature, 'organic invalidates a saved analysis')
+receipt.items[0].organic = false
+receipt.items[0].originTag = 'en:france'
+assert.notEqual(receiptSignature(receipt), snapshot.signature, 'origin invalidates a saved analysis')
+receipt.items[0].originTag = null
+assert.equal(receiptSignature(receipt), snapshot.signature, 'clearing origin and organic restores the signature')
 receipt.items[0].quantity = 2
 const changed = db.buildRecord({ id: record.id, status: 'scored', receipt, items: receipt.items, analysisSnapshot: snapshot })
 assert.equal(changed.analysisSnapshot, null, 'correction invalidates old analysis')

@@ -10,9 +10,24 @@ export const REFERENCE_SOURCES = [
 ]
 const MASS = { g: 1, kg: 1000, mg: 0.001 }
 const VOLUME = { ml: 1, cl: 10, l: 1000 }
+const ORGANIC_LABEL = 'en:organic'
 const grade = (value, allowed) => allowed.includes(String(value).toLowerCase()) ? String(value).toLowerCase() : null
 const positive = (value) => typeof value === 'number' && Number.isFinite(value) && value > 0
 const numeric = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+// Same category with a different origin needs its own Green-Score estimate.
+export function categoryEstimateKey(categoryTag, originTag) {
+  return JSON.stringify([categoryTag || '', originTag || ''])
+}
+
+// User-marked organic applies only to category lines. Barcode products keep OFF labels.
+function labelsFor(line, barcode, product) {
+  const published = Array.isArray(product.labels_tags) ? product.labels_tags : null
+  if (barcode || !line.organic) return published
+  const labels = published ? [...published] : []
+  if (!labels.includes(ORGANIC_LABEL)) labels.push(ORGANIC_LABEL)
+  return labels
+}
 
 export function sourceUrl(item) {
   if (item.barcode) return `https://world.openfoodfacts.org/product/${encodeURIComponent(item.barcode)}`
@@ -46,18 +61,19 @@ export function analyseProducts(items, fetched = {}, categoryEstimates = {}) {
     const quantity = positive(line.quantity) ? line.quantity : 1
     const barcode = /^\d{8,14}$/.test(String(line.barcode || '')) ? String(line.barcode) : null
     const reference = !barcode ? PRODUCE[line.categoryTag] : null
-    const estimate = !barcode ? categoryEstimates[line.categoryTag] : null
+    const estimate = !barcode ? categoryEstimates[categoryEstimateKey(line.categoryTag, line.originTag)] : null
     const product = barcode ? (Object.prototype.hasOwnProperty.call(fetched, barcode) ? fetched[barcode] || {} : line.off || {}) : { ...line.off, ...estimate }
     const amount = amountFor(line, barcode ? product : null, quantity)
     const nutrients = reference?.nutriments || product.nutriments || {}
+    const labels = labelsFor(line, barcode, product)
     const nutriscore = grade(product.nutriscore_grade, ['a', 'b', 'c', 'd', 'e'])
     const nova = grade(product.nova_group, ['1', '2', '3', '4'])
     const greenScore = grade(product.environmental_score_grade || product.ecoscore_grade, ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'])
     const greenScoreStatus = (product.environmental_score_grade || product.ecoscore_grade) === 'not-applicable' ? 'not-applicable' : null
     const co2PerKg = reference?.co2PerKg ?? product.environmental_score_data?.agribalyse?.co2_total ?? product.ecoscore_data?.agribalyse?.co2_total
-    // For category estimates merge only the SAME reference and analysis data.
+    // For category estimates merge only the SAME reference, origin, organic flag and analysis data.
     const key = barcode ? `barcode:${barcode}` : reference
-      ? `reference:${reference.referenceId}:${JSON.stringify({ nutriscore, nova, greenScore, greenScoreStatus, nutrients, labels: product.labels_tags, levels: product.nutrient_levels, allergens: product.allergens_tags, traces: product.traces_tags, ingredients: product.ingredients_text, additives: product.additives_tags })}`
+      ? `reference:${reference.referenceId}:${line.originTag || ''}:${line.organic ? 1 : 0}:${JSON.stringify({ nutriscore, nova, greenScore, greenScoreStatus, nutrients, labels, levels: product.nutrient_levels, allergens: product.allergens_tags, traces: product.traces_tags, ingredients: product.ingredients_text, additives: product.additives_tags })}`
       : `line:${line.id || index}`
     const entry = {
       id: key, itemId: line.id, name: barcode ? product.product_name || line.name || '' : line.name || '', barcode, categoryTag: line.categoryTag || null,
@@ -68,7 +84,7 @@ export function analyseProducts(items, fetched = {}, categoryEstimates = {}) {
       nutriscore, nova, greenScore, greenScoreStatus, nutrients,
       nutrientLevels: product.nutrient_levels || {},
       additives: Array.isArray(product.additives_tags) ? product.additives_tags : null,
-      labels: Array.isArray(product.labels_tags) ? product.labels_tags : null,
+      labels,
       allergens: Array.isArray(product.allergens_tags) ? product.allergens_tags : null,
       traces: Array.isArray(product.traces_tags) ? product.traces_tags : null,
       ingredientsKnown: Boolean(product.ingredients_text?.trim()) || (Array.isArray(product.ingredients) && product.ingredients.length > 0),

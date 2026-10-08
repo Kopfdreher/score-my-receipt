@@ -14,9 +14,12 @@ export function categoryEstimateIngredient(categoryTag) {
 }
 
 export default {
-  getCategoryEstimate(categoryTag) {
+  getCategoryEstimate(categoryTag, originTag = null) {
     const ingredient = categoryEstimateIngredient(categoryTag)
     if (!ingredient) return Promise.resolve(null)
+    const origin = originTag || null
+    const productInput = { categories_tags: [categoryTag], ingredients_text_en: ingredient }
+    if (origin) productInput.origins_tags = [origin]
     // The special "test" code analyses input without creating or updating an OFF product.
     const url = constants.OFF_API_URL.replace('/api/v2/product', '/api/v3/product/test')
     const controller = new AbortController()
@@ -28,7 +31,7 @@ export default {
       body: JSON.stringify({
         lc: 'en', cc: 'fr', tags_lc: 'en',
         fields: 'nutriscore_grade,nova_group,nutrient_levels,environmental_score_grade,environmental_score_data,ecoscore_grade,ecoscore_data',
-        product: { categories_tags: [categoryTag], ingredients_text_en: ingredient }
+        product: productInput
       })
     }).then(response => {
       if (!response.ok) throw new Error(`OFF category estimate failed (${response.status})`)
@@ -45,7 +48,7 @@ export default {
         environmental_score_data: product.environmental_score_data,
         ecoscore_grade: product.ecoscore_grade,
         ecoscore_data: product.ecoscore_data,
-        ingredient, categoryTag, country: 'fr', estimatedAt: new Date().toISOString()
+        ingredient, categoryTag, originTag: origin, country: 'fr', estimatedAt: new Date().toISOString()
       }
     }).finally(() => clearTimeout(timeout))
   }

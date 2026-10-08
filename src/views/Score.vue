@@ -396,7 +396,7 @@ import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import openFoodFactsEstimates, { categoryEstimateIngredient } from '@/services/openFoodFactsEstimates'
-import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, macronutrientProportions, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
+import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, categoryEstimateKey, distribution, nutrientTotal, macronutrientProportions, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
 import { receiptSignature } from '@/services/receiptHistory'
 import ADDITIVES from '@/utils/additives.json'
 import { COLORS } from '@/utils/score'
@@ -481,7 +481,19 @@ export default {
     isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
     isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
     barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
-    estimateCategories() { return [...new Set(this.items.filter(item => !/^\d{8,14}$/.test(String(item.barcode || '')) && categoryEstimateIngredient(item.categoryTag)).map(item => item.categoryTag))] },
+    estimateRequests() {
+      const seen = new Set()
+      const requests = []
+      this.items.forEach((item) => {
+        if (/^\d{8,14}$/.test(String(item.barcode || ''))) return
+        if (!categoryEstimateIngredient(item.categoryTag)) return
+        const key = categoryEstimateKey(item.categoryTag, item.originTag)
+        if (seen.has(key)) return
+        seen.add(key)
+        requests.push({ key, categoryTag: item.categoryTag, originTag: item.originTag || null })
+      })
+      return requests
+    },
     snapshotMatches() { return this.receipt.analysisSnapshot?.signature === receiptSignature(this.receipt) },
     products() { return this.snapshotMatches ? this.receipt.analysisSnapshot.products : analyseProducts(this.items, this.fetched, this.categoryEstimates) },
     glance() {
@@ -582,7 +594,10 @@ export default {
     sortReverse: 'savePreferences'
   },
   mounted() {
-    if (this.$route.query.mock === '1' || !this.items.length) this.appStore.loadMockReceipt()
+    const receipt = this.appStore.getReceipt
+    const allowMock = this.$route.query.mock === '1'
+      || (!receipt.proofId && !receipt.historyId && !this.items.length)
+    if (allowMock) this.appStore.loadMockReceipt()
     this.initializing = false
     this.loadDetails()
   },
@@ -629,7 +644,7 @@ export default {
     },
     saveAnalysis() {
       if (!this.items.length || this.snapshotMatches) return
-      const snapshot = { signature: receiptSignature(this.receipt), categoryEstimatesVersion: this.estimateCategories.every(tag => tag in this.categoryEstimates) ? 1 : 0, products: JSON.parse(JSON.stringify(this.products)), savedAt: new Date().toISOString() }
+      const snapshot = { signature: receiptSignature(this.receipt), categoryEstimatesVersion: this.estimateRequests.every(request => request.key in this.categoryEstimates) ? 1 : 0, products: JSON.parse(JSON.stringify(this.products)), savedAt: new Date().toISOString() }
       this.appStore.saveReceiptToHistory('scored', snapshot)
         .then(() => { this.storageError = false })
         .catch(() => { this.storageError = true })
@@ -642,7 +657,7 @@ export default {
       if (this.snapshotMatches) { this.detailsStatus = 'done'; return }
       const requestId = ++this.requestId
       const missing = this.barcodes.filter(code => !(code in this.fetched))
-      const categories = this.estimateCategories.filter(tag => !(tag in this.categoryEstimates))
+      const categories = this.estimateRequests.filter(request => !(request.key in this.categoryEstimates))
       if (!missing.length && !categories.length) { this.detailsStatus = 'done'; this.saveAnalysis(); return }
       this.detailsStatus = 'loading'
       let failed = false
@@ -651,10 +666,10 @@ export default {
         return openFoodFactsApi.getProductDetails(code).then(product => {
           if (requestId === this.requestId) this.fetched = { ...this.fetched, [code]: product }
         }).catch(() => { failed = true })
-      }), Promise.resolve()).then(() => categories.reduce((chain, tag) => chain.then(() => {
+      }), Promise.resolve()).then(() => categories.reduce((chain, request) => chain.then(() => {
         if (requestId !== this.requestId) return
-        return openFoodFactsEstimates.getCategoryEstimate(tag).then(estimate => {
-          if (requestId === this.requestId) this.categoryEstimates = { ...this.categoryEstimates, [tag]: estimate }
+        return openFoodFactsEstimates.getCategoryEstimate(request.categoryTag, request.originTag).then(estimate => {
+          if (requestId === this.requestId) this.categoryEstimates = { ...this.categoryEstimates, [request.key]: estimate }
         }).catch(() => { failed = true })
       }), Promise.resolve())).then(() => {
         if (requestId === this.requestId) {

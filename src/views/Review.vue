@@ -159,7 +159,6 @@
                   @scan="openScanner"
                   @barcode-commit="enrichFromBarcode"
                   @preview="openProductPreview"
-                  @category-confirm="confirmCategory"
                   @swipe-open="onItemSwipeOpen"
                   @swipe-close="onItemSwipeClose"
                 />
@@ -689,6 +688,12 @@ import openFoodFactsOrigins from '@/services/openFoodFactsOrigins'
 import openStreetMapApi from '@/services/openStreetMapApi'
 import openPricesApi from '@/services/openPricesApi'
 import constants from '@/constants'
+import {
+  parseOptionalNumber,
+  parseQuantity as parseItemQuantity,
+  quantityStep as itemQuantityStep,
+  quantityUnitKey as itemQuantityUnitKey
+} from '@/utils/reviewItem'
 
 const OSM_TYPE_MAP = {
   node: 'NODE',
@@ -737,7 +742,6 @@ export default {
       categoryImageMessage: null,
       swipeOpenItemId: null,
       receiptOpen: false,
-      savingDraft: false,
       savingScored: false,
       draftMessage: null,
       draftMessageType: 'info'
@@ -821,10 +825,10 @@ export default {
       )
     },
     previewQuantityUnitKey() {
-      return this.isCategoryPriced(this.previewItem) ? 'review.unitKg' : 'review.unitPackage'
+      return itemQuantityUnitKey(this.previewItem)
     },
     previewQuantityStep() {
-      return this.isCategoryPriced(this.previewItem) ? '0.001' : '1'
+      return itemQuantityStep(this.previewItem)
     },
     showPreviewBarcodeEdit() {
       if (!this.previewItem) return false
@@ -1029,7 +1033,7 @@ export default {
       this.locationMessage = null
 
       // Photon is more reliable from the browser than Nominatim (CORS).
-      openStreetMapApi.openstreetmapSearch(query, 'photon')
+      openStreetMapApi.openstreetmapSearch(query)
         .then((results) => {
           const options = (results || [])
             .map((result) => this.normalizePhotonResult(result))
@@ -1053,12 +1057,12 @@ export default {
     geolocateUser() {
       if (!navigator.geolocation) {
         this.locationMessageType = 'error'
-        this.locationMessage = 'Your browser does not support geolocation.'
+        this.locationMessage = this.$t('review.locationGeoUnsupported')
         return
       }
 
       this.locationSearching = true
-      this.locationMessage = 'Locating...'
+      this.locationMessage = this.$t('review.locationGeoSearching')
       this.locationMessageType = 'info'
 
       navigator.geolocation.getCurrentPosition(
@@ -1073,7 +1077,7 @@ export default {
               this.locationOptions = options
               if (!options.length) {
                 this.locationMessageType = 'warning'
-                this.locationMessage = 'No shops found nearby.'
+                this.locationMessage = this.$t('review.locationGeoNoShops')
               } else {
                 this.locationMessage = null
                 this.locationQuery = options[0].label
@@ -1082,7 +1086,7 @@ export default {
             .catch(() => {
               this.locationOptions = []
               this.locationMessageType = 'error'
-              this.locationMessage = 'Error searching for nearby shops.'
+              this.locationMessage = this.$t('review.locationGeoError')
             })
             .finally(() => {
               this.locationSearching = false
@@ -1091,7 +1095,7 @@ export default {
         () => {
           this.locationSearching = false
           this.locationMessageType = 'error'
-          this.locationMessage = 'Permission denied or GPS error.'
+          this.locationMessage = this.$t('review.locationGeoDenied')
         },
         { enableHighAccuracy: true, timeout: 10000 }
       )
@@ -1145,6 +1149,8 @@ export default {
         if (patch.barcode) {
           nextPatch.categoryTag = null
           nextPatch.noBarcodeAvailable = false
+          nextPatch.originTag = null
+          nextPatch.organic = false
         }
       }
 
@@ -1207,7 +1213,7 @@ export default {
         return
       }
 
-      this.appStore.updateItem(itemId, {
+      this.onUpdateItem(itemId, {
         barcode,
         categoryTag: null,
         verified: false,
@@ -1222,7 +1228,7 @@ export default {
       openFoodFactsApi.openfoodfactsProductSearch(barcode)
         .then((data) => {
           if (!data || data.status !== 1 || !data.product) return
-          this.applyProductToItem(itemId, data.product)
+          this.applyFetchedProduct(itemId, data.product, barcode)
         })
         .catch(() => {
           // Keep the barcode even if OFF lookup fails.
@@ -1230,23 +1236,35 @@ export default {
     },
     // Barcodes without Open Food Facts details are loaded before the list is shown.
     autoFetchMissingProducts() {
-      const missing = this.items.filter((item) => item.barcode && !item.off)
+      const missing = this.items
+        .filter((item) => item.barcode && !item.off)
+        .map((item) => ({ id: item.id, barcode: String(item.barcode) }))
       if (!missing.length) return
       this.fetchingProducts = true
       openFoodFactsApi.fetchProductsByCode(missing.map((item) => item.barcode))
         .then((byCode) => {
           missing.forEach((item) => {
-            const product = byCode.get(String(item.barcode))
-            if (product) this.applyProductToItem(item.id, product)
+            const product = byCode.get(item.barcode)
+            if (product) this.applyFetchedProduct(item.id, product, item.barcode)
           })
         })
         .finally(() => {
           this.fetchingProducts = false
         })
     },
-    applyProductToItem(itemId, product) {
+    barcodesMatch(left, right) {
+      const a = String(left || '').trim()
+      const b = String(right || '').trim()
+      if (!a || !b) return false
+      if (a === b) return true
+      const strip = (value) => value.replace(/^0+/, '') || '0'
+      return strip(a) === strip(b)
+    },
+    applyFetchedProduct(itemId, product, requestedBarcode) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
-      if (!item || !product) return
+      if (!item || !product || !requestedBarcode) return
+      if (!this.barcodesMatch(item.barcode, requestedBarcode)) return
+      if (!this.barcodesMatch(product.code, requestedBarcode)) return
 
       const patch = {
         categoryTag: null,
@@ -1361,23 +1379,11 @@ export default {
     },
     onPreviewPriceChange(value) {
       if (!this.previewItemId) return
-      this.onUpdateItem(this.previewItemId, { price: this.parsePreviewNumber(value) })
+      this.onUpdateItem(this.previewItemId, { price: parseOptionalNumber(value) })
     },
     onPreviewQuantityChange(value) {
       if (!this.previewItemId) return
-      const parsed = this.parsePreviewNumber(value)
-      this.onUpdateItem(this.previewItemId, {
-        quantity: parsed === null || parsed <= 0 ? 1 : parsed
-      })
-    },
-    // Category prices are per kg; barcode (product) prices are per package.
-    isCategoryPriced(item) {
-      return Boolean(item && !item.barcode && item.categoryTag)
-    },
-    parsePreviewNumber(value) {
-      if (value === '' || value === null || value === undefined) return null
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : null
+      this.onUpdateItem(this.previewItemId, { quantity: parseItemQuantity(value) })
     },
     onPreviewCategoryChange(categoryTag) {
       if (!this.previewItemId) return
@@ -1415,7 +1421,7 @@ export default {
       if (!itemId || !barcode) return
 
       this.previewLookingUp = true
-      this.appStore.updateItem(itemId, {
+      this.onUpdateItem(itemId, {
         barcode,
         categoryTag: null,
         verified: false,
@@ -1429,7 +1435,7 @@ export default {
             this.previewCorrecting = true
             return
           }
-          this.applyProductToItem(itemId, data.product)
+          this.applyFetchedProduct(itemId, data.product, barcode)
           this.previewCorrecting = false
           this.previewNoBarcodeMode = false
         })
@@ -1547,23 +1553,6 @@ export default {
     },
     goBack() {
       this.$router.push({ name: 'upload' })
-    },
-    saveDraft() {
-      if (!this.items.length || this.savingDraft) return
-      this.savingDraft = true
-      this.draftMessage = null
-      this.appStore.saveReceiptToHistory('draft')
-        .then(() => {
-          this.draftMessageType = 'success'
-          this.draftMessage = this.$t('review.saveDraftSuccess')
-        })
-        .catch(() => {
-          this.draftMessageType = 'error'
-          this.draftMessage = this.$t('review.saveDraftError')
-        })
-        .finally(() => {
-          this.savingDraft = false
-        })
     },
     persistScoredThenGo() {
       this.savingScored = true
