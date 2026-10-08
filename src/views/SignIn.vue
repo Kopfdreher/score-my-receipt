@@ -1,10 +1,5 @@
 <template>
   <main class="sign-in">
-    <div class="sign-in__media" aria-hidden="true">
-      <div class="sign-in__image" />
-      <div class="sign-in__veil" />
-    </div>
-
     <div class="sign-in__layout">
       <section class="sign-in__intro sign-in__reveal sign-in__reveal--1">
         <p class="sign-in__eyebrow">
@@ -186,32 +181,8 @@ export default {
 .sign-in {
   position: relative;
   min-height: 100dvh;
-  overflow: hidden;
-  color: var(--smr-cream, #F7FBF4);
-  background: #0E241C;
-}
-
-.sign-in__media {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.sign-in__image {
-  position: absolute;
-  inset: -4%;
-  background-image: url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2200&q=80');
-  background-size: cover;
-  background-position: center;
-  animation: sign-in-drift 24s ease-in-out infinite alternate;
-}
-
-.sign-in__veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(105deg, rgba(10, 28, 22, 0.78) 0%, rgba(10, 28, 22, 0.45) 48%, rgba(10, 28, 22, 0.55) 100%),
-    linear-gradient(180deg, rgba(10, 28, 22, 0.2) 0%, rgba(10, 28, 22, 0.55) 100%);
+  color: var(--score-ink, #24332d);
+  background: var(--score-canvas, #f2f4f3);
 }
 
 .sign-in__layout {
@@ -237,18 +208,17 @@ export default {
 
 .sign-in__eyebrow {
   margin: 0 0 0.65rem;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(232, 242, 230, 0.72);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--score-muted, #52605a);
 }
 
 .sign-in__brand {
   margin: 0 0 0.75rem;
-  font-family: var(--font-display, Georgia, serif);
-  font-size: clamp(1.85rem, 4vw, 2.35rem);
-  font-weight: 600;
+  font-size: clamp(1.9rem, 5vw, 2.8rem);
+  font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
 }
@@ -258,7 +228,7 @@ export default {
   max-width: 28ch;
   font-size: 1.02rem;
   line-height: 1.45;
-  color: rgba(247, 251, 244, 0.9);
+  color: var(--score-muted, #52605a);
 }
 
 .sign-in__auth {
@@ -270,17 +240,15 @@ export default {
 .sign-in__card {
   width: min(23rem, 100%);
   padding: 1.6rem 1.45rem 1.45rem;
-  border-radius: 1.15rem;
-  background: rgba(247, 251, 244, 0.96);
-  color: #0E241C;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 22px 48px rgba(6, 18, 13, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 14px;
+  background: var(--score-surface, #fff);
+  color: var(--score-ink, #24332d);
+  border: 1px solid var(--score-border, #afb9b4);
 }
 
 .sign-in__support {
   margin: 0 0 1.4rem;
-  color: rgba(14, 36, 28, 0.68);
+  color: var(--score-muted, #52605a);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -290,14 +258,14 @@ export default {
   margin: 0 0 0.4rem;
   font-size: 0.86rem;
   font-weight: 600;
-  color: #16382A;
+  color: var(--score-ink, #24332d);
 }
 
 .sign-in__hint {
   margin: 0.4rem 0 1.1rem;
   font-size: 0.8rem;
   line-height: 1.4;
-  color: rgba(14, 36, 28, 0.58);
+  color: var(--score-muted, #52605a);
 }
 
 .sign-in__field--password {
@@ -334,21 +302,21 @@ export default {
 
 .sign-in__footer {
   margin: 1.25rem 0 0;
-  color: rgba(14, 36, 28, 0.68);
+  color: var(--score-muted, #52605a);
   font-size: 0.9rem;
   line-height: 1.5;
 }
 
 .sign-in__footer a {
-  color: #1F6B4A;
+  color: var(--score-accent, #245b3f);
   font-weight: 600;
   text-decoration: none;
-  border-bottom: 1px solid rgba(31, 107, 74, 0.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--score-accent, #245b3f) 35%, transparent);
 }
 
 .sign-in__footer a:hover,
 .sign-in__footer a:focus-visible {
-  border-color: #1F6B4A;
+  border-color: var(--score-accent, #245b3f);
   outline: none;
 }
 
@@ -370,15 +338,6 @@ export default {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes sign-in-drift {
-  from {
-    transform: scale(1.03) translate3d(0, 0, 0);
-  }
-  to {
-    transform: scale(1.08) translate3d(-1.2%, -0.8%, 0);
   }
 }
 
@@ -406,7 +365,6 @@ export default {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sign-in__image,
   .sign-in__reveal {
     animation: none;
   }

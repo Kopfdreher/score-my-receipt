@@ -264,10 +264,8 @@ export default {
 .upload {
   min-height: 100dvh;
   padding: 1.5rem;
-  color: var(--smr-cream, #F7FBF4);
-  background:
-    radial-gradient(90% 70% at 80% 0%, rgba(31, 107, 74, 0.35), transparent 55%),
-    linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+  color: var(--score-ink, #24332d);
+  background: var(--score-canvas, #f2f4f3);
 }
 
 .upload__header {
@@ -280,7 +278,6 @@ export default {
 
 .upload__brand {
   margin: 0;
-  font-family: var(--font-display, Georgia, serif);
   font-size: 1.2rem;
   font-weight: 700;
 }
@@ -322,22 +319,22 @@ export default {
 
 .upload__title {
   margin: 0 0 0.75rem;
-  font-family: var(--font-display, Georgia, serif);
   font-size: clamp(2rem, 6vw, 3rem);
   font-weight: 700;
   line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 .upload__support {
   margin: 0 0 2rem;
-  color: rgba(247, 251, 244, 0.78);
+  color: var(--score-muted, #52605a);
   font-size: 1.05rem;
   line-height: 1.5;
 }
 
 .upload__hint {
   margin: 1rem 0 0;
-  color: rgba(247, 251, 244, 0.6);
+  color: var(--score-muted, #52605a);
   font-size: 0.9rem;
 }
 </style>

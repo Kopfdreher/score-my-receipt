@@ -246,8 +246,8 @@ export default {
   min-height: 100dvh;
   padding: 1.25rem;
   padding-bottom: 5rem;
-  color: var(--smr-cream, #F7FBF4);
-  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+  color: var(--score-ink, #24332d);
+  background: var(--score-canvas, #f2f4f3);
 }
 
 .history__header {
@@ -270,9 +270,9 @@ export default {
 
 .history__brand {
   margin: 0 0 0.2rem;
-  font-family: var(--font-display, Georgia, serif);
   font-size: 1rem;
   font-weight: 700;
+  color: var(--score-muted, #52605a);
 }
 
 .history__title {
@@ -286,16 +286,16 @@ export default {
   max-width: 36rem;
   font-size: 0.9rem;
   line-height: 1.4;
-  color: rgba(247, 251, 244, 0.72);
+  color: var(--score-muted, #52605a);
 }
 
 .history__panel {
   width: min(56rem, 100%);
   padding: 0.85rem;
-  border-radius: 0.75rem;
-  background: #F7FBF4;
-  color: #0E241C;
-  box-shadow: 0 14px 30px rgba(6, 18, 13, 0.22);
+  border-radius: 14px;
+  background: var(--score-surface, #fff);
+  color: var(--score-ink, #24332d);
+  border: 1px solid var(--score-border, #afb9b4);
 }
 
 .history__filters {
@@ -332,9 +332,9 @@ export default {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 0.85rem;
-  border-radius: 0.65rem;
-  background: rgba(14, 36, 28, 0.04);
-  border: 1px solid rgba(14, 36, 28, 0.08);
+  border-radius: 14px;
+  background: var(--score-canvas, #f2f4f3);
+  border: 1px solid var(--score-rule, #d8dedb);
 }
 
 .history__card-main {
@@ -352,20 +352,20 @@ export default {
 
 .history__card-date {
   font-size: 0.75rem;
-  color: rgba(14, 36, 28, 0.55);
+  color: var(--score-muted, #52605a);
 }
 
 .history__card-title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #0E241C;
+  color: var(--score-ink, #24332d);
 }
 
 .history__card-meta {
   margin: 0.2rem 0 0;
   font-size: 0.8rem;
-  color: rgba(14, 36, 28, 0.62);
+  color: var(--score-muted, #52605a);
 }
 
 .history__card-actions {
@@ -380,7 +380,7 @@ export default {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 1.25rem 0.35rem;
-  color: rgba(14, 36, 28, 0.7);
+  color: var(--score-muted, #52605a);
 }
 
 .history__empty p {
@@ -395,9 +395,12 @@ export default {
   gap: 0.75rem;
   width: min(56rem, 100%);
   margin-top: 1rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
 }
 
 .history__back {
-  color: var(--smr-mist, #E8F2E6) !important;
+  color: #E8F2E6 !important;
 }
 </style>

@@ -797,7 +797,7 @@ export default {
 }
 
 .review-row__price-amount {
-  color: rgba(14, 36, 28, 0.55);
+  color: rgba(14, 36, 28, 0.7);
   font-size: 0.88rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;

@@ -1613,7 +1613,7 @@ export default {
     },
     pricePayloadKey(payload) {
       const identity = payload.product_code || payload.category_tag || ''
-      return [
+      const parts = [
         payload.type,
         identity,
         Number(payload.price),
@@ -1621,17 +1621,27 @@ export default {
         payload.date,
         payload.location_osm_id,
         payload.location_osm_type,
-        payload.price_per || '',
-        (payload.origins_tags || []).join(','),
-        (payload.labels_tags || []).join(',')
-      ].join('|')
+        payload.price_per || ''
+      ]
+      const origins = (payload.origins_tags || []).join(',')
+      const labels = (payload.labels_tags || []).join(',')
+      // Empty tag fields used to be appended anyway, which no longer matches older keys.
+      if (origins || labels) {
+        parts.push(origins, labels)
+      }
+      return parts.join('|')
     },
     itemPriceAlreadySent(item) {
       if (!item || !this.itemCanContribute(item)) return Boolean(item?.priceSent)
       if (item.priceSent) return true
       const keys = this.receipt?.sentPriceKeys || []
       if (!keys.length) return false
-      return keys.includes(this.pricePayloadKey(this.buildPricePayload(item)))
+      const payload = this.buildPricePayload(item)
+      const key = this.pricePayloadKey(payload)
+      if (keys.includes(key)) return true
+      const hasTags = Boolean((payload.origins_tags || []).length || (payload.labels_tags || []).length)
+      // Prices sent while empty tags were always appended end with an extra "||".
+      return !hasTags && keys.includes(`${key}||`)
     },
     // Turn an Open Prices / network failure into something readable.
     describeContributeError(error) {
@@ -1752,8 +1762,8 @@ export default {
 .review {
   min-height: 100dvh;
   padding: 0.9rem 0.8rem 0;
-  color: var(--smr-cream, #F7FBF4);
-  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+  color: var(--score-ink, #24332d);
+  background: var(--score-canvas, #f2f4f3);
   overflow-x: clip;
   box-sizing: border-box;
   display: flex;
@@ -1767,17 +1777,17 @@ export default {
 
 .review__title {
   margin: 0;
-  font-family: var(--font-display, Georgia, serif);
   font-size: 1.45rem;
   font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .review__subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
   line-height: 1.35;
-  color: rgba(232, 242, 230, 0.72);
+  color: var(--score-muted, #52605a);
 }
 
 .review__layout {
@@ -1804,10 +1814,10 @@ export default {
   width: 100%;
   max-width: 100%;
   padding: 0.85rem 0.8rem;
-  border-radius: 1rem;
-  background: #F7FBF4;
-  color: #0E241C;
-  box-shadow: 0 10px 26px rgba(6, 18, 13, 0.22);
+  border-radius: 14px;
+  background: var(--score-surface, #fff);
+  color: var(--score-ink, #24332d);
+  border: 1px solid var(--score-border, #afb9b4);
   box-sizing: border-box;
 }
 
@@ -2090,7 +2100,7 @@ export default {
   gap: 0.6rem;
   margin: auto -0.8rem 0;
   padding: 0.65rem 0.8rem;
-  background: rgba(14, 36, 28, 0.92);
+  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(232, 242, 230, 0.14);
@@ -2099,7 +2109,7 @@ export default {
 
 .review__dock-back {
   flex-shrink: 0;
-  color: var(--smr-mist, #E8F2E6) !important;
+  color: #E8F2E6 !important;
 }
 
 .review__dock-summary {
@@ -2225,7 +2235,7 @@ export default {
 }
 
 .review__back {
-  color: var(--smr-mist, #E8F2E6) !important;
+  color: var(--score-accent, #245b3f) !important;
 }
 
 .review-preview {

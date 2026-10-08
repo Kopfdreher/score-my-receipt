@@ -25,13 +25,22 @@ export default {
 
 <style>
 :root {
-  --smr-ink: #0E241C;
-  --smr-forest: #16382A;
-  --smr-leaf: #1F6B4A;
-  --smr-mist: #E8F2E6;
-  --smr-cream: #F7FBF4;
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Sora', system-ui, sans-serif;
+  --smr-ink: #24332d;
+  --smr-forest: #245b3f;
+  --smr-leaf: #245b3f;
+  --smr-mist: #e7ebe9;
+  --smr-cream: #f2f4f3;
+  --score-ink: #24332d;
+  --score-muted: #52605a;
+  --score-surface: #ffffff;
+  --score-border: #afb9b4;
+  --score-rule: #d8dedb;
+  --score-accent: #245b3f;
+  --score-tint: #e7ebe9;
+  --score-focus: #174f78;
+  --score-canvas: #f2f4f3;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -60,8 +69,8 @@ body {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   font-family: var(--font-body);
-  background: var(--smr-forest);
-  color: var(--smr-cream);
+  background: var(--score-canvas);
+  color: var(--score-ink);
   touch-action: manipulation;
 }
 
@@ -106,11 +115,12 @@ body {
   flex: 0 0 auto;
   width: 100%;
   padding: 0.55rem 0.65rem 0.4rem;
-  background: rgba(14, 36, 28, 0.92);
+  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
   border-bottom: 1px solid rgba(232, 242, 230, 0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-sizing: border-box;
+  color: #F7FBF4;
 }
 
 .d-sr-only {
