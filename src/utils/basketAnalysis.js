@@ -2,13 +2,12 @@ import PRODUCE from '@/data/produceReference.json'
 import { COLORS } from './score'
 
 export const ALLERGENS = ['gluten', 'milk', 'eggs', 'nuts', 'peanuts', 'soybeans', 'sesame-seeds', 'fish', 'crustaceans', 'molluscs', 'celery', 'mustard', 'lupin', 'sulphur-dioxide-and-sulphites']
-export const NUTRIENTS = { sugars: 'sugars_100g', salt: 'salt_100g', fat: 'fat_100g', saturatedFat: 'saturated-fat_100g' }
+export const NUTRIENTS = { carbohydrates: 'carbohydrates_100g', proteins: 'proteins_100g', sugars: 'sugars_100g', salt: 'salt_100g', fat: 'fat_100g', saturatedFat: 'saturated-fat_100g' }
 export const REFERENCE_SOURCES = [
   { label: 'Open Food Facts', url: 'https://world.openfoodfacts.org/data' },
   { label: 'CIQUAL 2020 · ANSES', url: 'https://github.com/openfoodfacts/openfoodfacts-server/blob/main/external-data/ciqual/ciqual/CIQUAL2020_ENG_2020_07_07.csv' },
   { label: 'AGRIBALYSE 3.2 · ADEME', url: 'https://agribalyse.ademe.fr/' }
 ]
-const FOREST_COLORS = { a: '#038141', b: '#85bb2f', c: '#ee8100', d: '#e63e11' }
 const MASS = { g: 1, kg: 1000, mg: 0.001 }
 const VOLUME = { ml: 1, cl: 10, l: 1000 }
 const grade = (value, allowed) => allowed.includes(String(value).toLowerCase()) ? String(value).toLowerCase() : null
@@ -41,30 +40,32 @@ function amountFor(item, product, quantity) {
   }
 }
 
-export function analyseProducts(items, fetched = {}) {
+export function analyseProducts(items, fetched = {}, categoryEstimates = {}) {
   const groups = new Map()
   items.forEach((line, index) => {
     const quantity = positive(line.quantity) ? line.quantity : 1
     const barcode = /^\d{8,14}$/.test(String(line.barcode || '')) ? String(line.barcode) : null
     const reference = !barcode ? PRODUCE[line.categoryTag] : null
-    const product = barcode ? (Object.prototype.hasOwnProperty.call(fetched, barcode) ? fetched[barcode] || {} : line.off || {}) : (line.off || {})
+    const estimate = !barcode ? categoryEstimates[line.categoryTag] : null
+    const product = barcode ? (Object.prototype.hasOwnProperty.call(fetched, barcode) ? fetched[barcode] || {} : line.off || {}) : { ...line.off, ...estimate }
     const amount = amountFor(line, barcode ? product : null, quantity)
     const nutrients = reference?.nutriments || product.nutriments || {}
     const nutriscore = grade(product.nutriscore_grade, ['a', 'b', 'c', 'd', 'e'])
-    const nova = grade(product.nova_group, ['1', '2', '3', '4']) || (reference ? '1' : null)
+    const nova = grade(product.nova_group, ['1', '2', '3', '4'])
     const greenScore = grade(product.environmental_score_grade || product.ecoscore_grade, ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'])
-    const forest = grade(product.forest_footprint_2026?.grade, ['a', 'b', 'c', 'd'])
+    const greenScoreStatus = (product.environmental_score_grade || product.ecoscore_grade) === 'not-applicable' ? 'not-applicable' : null
     const co2PerKg = reference?.co2PerKg ?? product.environmental_score_data?.agribalyse?.co2_total ?? product.ecoscore_data?.agribalyse?.co2_total
     // For category estimates merge only the SAME reference and analysis data.
     const key = barcode ? `barcode:${barcode}` : reference
-      ? `reference:${reference.referenceId}:${JSON.stringify({ nutriscore, nova, greenScore, forest, nutrients, labels: product.labels_tags, levels: product.nutrient_levels, allergens: product.allergens_tags, traces: product.traces_tags, ingredients: product.ingredients_text, additives: product.additives_tags })}`
+      ? `reference:${reference.referenceId}:${JSON.stringify({ nutriscore, nova, greenScore, greenScoreStatus, nutrients, labels: product.labels_tags, levels: product.nutrient_levels, allergens: product.allergens_tags, traces: product.traces_tags, ingredients: product.ingredients_text, additives: product.additives_tags })}`
       : `line:${line.id || index}`
     const entry = {
       id: key, itemId: line.id, name: barcode ? product.product_name || line.name || '' : line.name || '', barcode, categoryTag: line.categoryTag || null,
       quantity, lineCount: 1, sourceUrl: sourceUrl({ barcode, categoryTag: line.categoryTag }),
-      sourceLinks: reference ? [REFERENCE_SOURCES[1], { label: 'AGRIBALYSE 3.2 · ADEME', url: reference.agribalyseCode ? `https://agribalyse.ademe.fr/app/aliments/${encodeURIComponent(reference.agribalyseCode)}` : REFERENCE_SOURCES[2].url }] : REFERENCE_SOURCES.slice(0, 1),
-      estimated: Boolean(reference), referenceName: reference?.referenceName,
-      nutriscore, nova, greenScore, forest, nutrients,
+      sourceLinks: reference ? [REFERENCE_SOURCES[0], REFERENCE_SOURCES[1], { label: 'AGRIBALYSE 3.2 · ADEME', url: reference.agribalyseCode ? `https://agribalyse.ademe.fr/app/aliments/${encodeURIComponent(reference.agribalyseCode)}` : REFERENCE_SOURCES[2].url }] : REFERENCE_SOURCES.slice(0, 1),
+      estimated: Boolean(reference || estimate), referenceName: reference?.referenceName || estimate?.ingredient,
+      categoryEstimate: estimate ? { ingredient: estimate.ingredient, categoryTag: estimate.categoryTag, country: estimate.country, estimatedAt: estimate.estimatedAt } : null,
+      nutriscore, nova, greenScore, greenScoreStatus, nutrients,
       nutrientLevels: product.nutrient_levels || {},
       additives: Array.isArray(product.additives_tags) ? product.additives_tags : null,
       labels: Array.isArray(product.labels_tags) ? product.labels_tags : null,
@@ -97,14 +98,33 @@ export function analyseProducts(items, fetched = {}) {
 }
 
 export function distribution(products, kind) {
-  const palettes = { ...COLORS, forest: FOREST_COLORS }
-  const colors = palettes[kind]
+  const colors = COLORS[kind]
   const keys = Object.keys(colors)
-  const segments = [...keys, 'unknown'].map((key) => {
-    const items = products.filter((p) => key === 'unknown' ? p[kind] === null : String(p[kind]) === key)
+  const segments = [...keys, ...(kind === 'greenScore' ? ['not-applicable'] : []), 'unknown'].map((key) => {
+    const items = products.filter((p) => key === 'not-applicable' ? p.greenScoreStatus === key : key === 'unknown' ? p[kind] === null && !(kind === 'greenScore' && p.greenScoreStatus === 'not-applicable') : String(p[kind]) === key)
     return { key, label: key === 'unknown' ? null : key === 'a-plus' ? 'A+' : key.toUpperCase(), color: colors[key] || COLORS.unknown, items, count: items.length, share: products.length ? items.length / products.length : 0 }
   })
   return { segments, known: products.filter((p) => p[kind] !== null).length, total: products.length }
+}
+
+export function macronutrientProportions(products) {
+  const keys = ['carbohydrates', 'fat', 'proteins']
+  const factors = { carbohydrates: 4, fat: 9, proteins: 4 }
+  const energy = product => positive(product.nutrients['energy-kcal_100g']) ? product.nutrients['energy-kcal_100g'] : positive(product.nutrients['energy-kj_100g']) ? product.nutrients['energy-kj_100g'] / 4.184 : null
+  const withEnergy = products.filter(product => (positive(product.grams) || positive(product.ml)) && energy(product) !== null)
+  // 4 kcal/g applies to carbohydrates other than polyols. Keep known polyol products out of this estimate.
+  const included = withEnergy.filter(product => keys.every(key => numeric(product.nutrients[NUTRIENTS[key]])) && !positive(product.nutrients.polyols_100g))
+  const totalEnergy = list => list.reduce((total, product) => total + energy(product) * (product.grams ?? product.ml) / 100, 0)
+  const kcal = totalEnergy(included)
+  const segments = keys.map(key => {
+    const grams = nutrientTotal(included, key).grams
+    const share = kcal ? grams * factors[key] / kcal : null
+    return { key, grams, share: share !== null && share <= 1 ? share : null }
+  })
+  const saturated = withEnergy.filter(product => numeric(product.nutrients['saturated-fat_100g']))
+  const saturatedEnergy = totalEnergy(saturated)
+  const saturatedShare = saturatedEnergy ? nutrientTotal(saturated, 'saturatedFat').grams * 9 / saturatedEnergy : null
+  return { known: included.length, items: included, segments, saturatedFat: { known: saturated.length, share: saturatedShare !== null && saturatedShare <= 1 ? saturatedShare : null } }
 }
 
 export function nutrientTotal(products, key) {
@@ -150,8 +170,7 @@ export function allergenGroups(products, allergen) {
 const GRADE_ORDER = {
   nutriscore: ['a', 'b', 'c', 'd', 'e'],
   nova: ['1', '2', '3', '4'],
-  greenScore: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'],
-  forest: ['a', 'b', 'c', 'd']
+  greenScore: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f']
 }
 const gradeRank = (kind) => (p) => p[kind] == null ? null : -GRADE_ORDER[kind].indexOf(p[kind])
 const largestFirst = (value) => (p) => value(p) === null ? null : -value(p)
@@ -162,7 +181,6 @@ export const SORTS = {
   nutriscore: gradeRank('nutriscore'),
   nova: gradeRank('nova'),
   greenScore: gradeRank('greenScore'),
-  forest: gradeRank('forest'),
   salt: largestFirst((p) => numeric(p.nutrients?.salt_100g) ? p.nutrients.salt_100g : null),
   sugars: largestFirst((p) => numeric(p.nutrients?.sugars_100g) ? p.nutrients.sugars_100g : null),
   fat: largestFirst((p) => numeric(p.nutrients?.fat_100g) ? p.nutrients.fat_100g : null),

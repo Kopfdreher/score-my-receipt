@@ -240,7 +240,9 @@
       "sugars": "Sugar",
       "salt": "Salt",
       "fat": "Fat",
-      "saturatedFat": "Saturated fat"
+      "saturatedFat": "Saturated fat",
+      "carbohydrates": "Carbohydrates",
+      "proteins": "Protein"
     },
     "additivesTitle": "Additives",
     "additivesRisk": "{high} high risk · {moderate} moderate risk",
@@ -261,10 +263,6 @@
       "distribution": "Distribution",
       "consumption": "Consumption"
     },
-    "forestTitle": "Forest footprint",
-    "forestValue": "{m2} m² of forest",
-    "forestRisk": "No product flagged for deforestation risk | {n} item with a deforestation risk (e.g. palm oil) | {n} items with a deforestation risk (e.g. palm oil)",
-    "forestInfo": "Forest footprint is only computed by Open Food Facts for some ingredients (soy, eggs, poultry).",
     "organic": "Organic",
     "fairTrade": "Fair trade",
     "labelCount": "{count} of {total} items",
@@ -299,13 +297,7 @@
         "d": "Poor choice",
         "e": "Choice worth swapping"
       },
-      "unknown": "Not rated: no data for this product",
-      "forest": {
-        "a": "No deforestation risk identified",
-        "b": "Low deforestation risk",
-        "c": "Medium deforestation risk",
-        "d": "High deforestation risk"
-      }
+      "unknown": "Not rated: no data for this product"
     },
     "summary": {
       "units": "Most of your items are {grade} ({meaning}): {percent}.",
@@ -338,12 +330,15 @@
       "health": "Health",
       "environment": "Environment",
       "processing": "Processing · NOVA",
-      "forest": "Forest footprint",
       "rated": "rated products",
       "productsCount": "{n} product | {n} products",
       "coverage": "Based on {known} of {total} products",
       "about": "About {title}",
       "estimated": "Estimated",
+      "categoryEstimateInfo": "OFF calculated scores and nutrient levels for the reviewed category as a single-ingredient food: {ingredient}. Green-Score uses the France context with defaults for missing origin, labels and packaging. This does not establish allergens or certifications for your purchase.",
+      "greenScoreNotApplicable": "Green-Score: not applicable",
+      "notApplicable": "Not applicable",
+      "notApplicableShort": "N/A",
       "weight": "Known weight: {weight}",
       "shoppingWeight": "Shopping weight",
       "productsByGrade": "Explore grades & products",
@@ -368,10 +363,13 @@
       "carbonLessThan": "less than {percent}",
       "carbonBasketUnit": "kg CO₂e · this basket",
       "carbonWeekly": "Weekly reference: {kg} kg CO₂e / person",
-      "carbonBreakdown": "Which products contribute most?",
+      "carbonBreakdown": "Which products contribute the most?",
       "carbonReferenceNote": "2050 reference · All activities, not just food",
       "carbonReferenceInfo": "Nos Gestes Climat uses 2,000 kg CO₂e per person per year as a collective reference for 2050. Dividing by 52 gives about 38.5 kg per week, across all activities. The comparison covers the whole basket, which may feed several people or last several days. It is not a measure of your weekly footprint or remaining allowance.",
-      "contribution": "{grams} · {percent} of the basket total",
+      "contribution": "{grams} · {percent} of total",
+      "nutrientPer100g": "{grams}/100 g",
+      "nutrientPer100ml": "{grams}/100 ml",
+      "nutrientPurchaseUnknown": "unknown weight",
       "labels": "Organic & fair trade",
       "personalise": "Optional checks",
       "remembered": "Your choices are remembered on this device.",
@@ -408,7 +406,6 @@
         "nutriscore": "Nutri-Score",
         "nova": "Processing level (NOVA)",
         "greenScore": "Green-Score",
-        "forest": "Forest footprint",
         "co2": "Carbon footprint (CO₂e)",
         "price": "Total spent",
         "unitPrice": "Price per item",
@@ -434,10 +431,6 @@
         "greenScore": {
           "normal": "F → A+",
           "reversed": "A+ → F"
-        },
-        "forest": {
-          "normal": "D → A",
-          "reversed": "A → D"
         },
         "co2": {
           "normal": "Highest first",
@@ -510,7 +503,6 @@
         "nutriscore": "Published Nutri-Score grades, A–E. Percentages use all distinct products in the receipt, including unknown grades. Each distinct product counts once; no basket average is calculated. Unknown includes products without a published grade. Select a grade to see its products.",
         "nova": "Processing groups, 1–4. Group 4 is ultra-processed. Confirmed raw-produce references are classified as group 1 using the NOVA definition and labelled Estimated. Other missing groups stay unknown.",
         "greenScore": "Published Green-Score grades, A+–F. Each distinct product counts once. No average or category grade is invented; unknown products stay visible. Select a grade to see its products.",
-        "forest": "Open Food Facts forest footprint 2026 grades, A–D. This describes ingredient-associated deforestation risk, not confirmed forest clearing. Only published grades are used; older or missing assessments stay unknown.",
         "additives": "Distinct additive tags reported by Open Food Facts, and how many distinct products contain them. An additive appearing in several products counts once. Missing additive data stays unknown. This is a count, not a health-risk assessment.",
         "nutrients": "Per-100 g or per-100 ml values × the purchased mass or volume ÷ 100. Only products with both a known value and amount are included. Fresh-produce averages come from CIQUAL 2020; less-than values and missing values are excluded rather than turned into exact numbers.",
         "carbon": "AGRIBALYSE kg CO₂e per kg × purchased weight in kg. The estimate covers the food lifecycle and is not a measurement of your individual purchase. Products missing weight or reference data are excluded. Drinks need a known mass; volume is not assumed to equal mass.",
@@ -544,14 +536,12 @@
         "caption": {
           "nutriscore": "Nutritional quality",
           "nova": "Level of processing",
-          "greenScore": "Environmental impact",
-          "forest": "Deforestation risk"
+          "greenScore": "Environmental impact"
         },
         "good": {
           "nutriscore": "A or B",
           "nova": "NOVA 1 or 2",
-          "greenScore": "A+ to B",
-          "forest": "A or B"
+          "greenScore": "A+ to B"
         },
         "hideDetails": "Hide details",
         "calculation": "The percentage is the share of rated products in the grades shown in the center. Products without a grade are excluded; coverage is shown below. This is not an average basket score."
@@ -578,7 +568,8 @@
         "units": {
           "products": "product | products",
           "additives": "additive | additives"
-        }
+        },
+        "macronutrients": "Macronutrient profile"
       },
       "breakdown": {
         "none": "No product in this basket.",
@@ -590,7 +581,26 @@
         "organic": "Products with an organic label.",
         "fairTrade": "Products with a fair-trade label.",
         "additives": "Additives found in your products. Open one to see where it is."
-      }
+      },
+      "macroDistribution": "Macronutrient distribution of purchased foods",
+      "ofEnergy": "of energy",
+      "macroReferenceRange": "French adult reference: {range} of energy",
+      "macroStatus": {
+        "within": "✓ Within reference range",
+        "above": "↑ Above reference",
+        "below": "↓ Below reference",
+        "unknown": "Not enough data"
+      },
+      "saturatedReference": "French adult reference: maximum 12% of energy",
+      "fibreReferenceLabel": "Fibre · adult daily reference",
+      "fibreDailyReference": "30 g/day",
+      "sugarReferenceLabel": "Sugars excluding lactose · adult daily maximum",
+      "sugarDailyReference": "100 g/day",
+      "macroReferenceNote": "Compared with French adult dietary references. Purchased food is not daily intake, and these ranges are not individual prescriptions.",
+      "macroCalculation": "Estimated energy from carbohydrates and protein (4 kcal/g) and fat (9 kcal/g), divided by the published energy of the same purchased products. Published kcal are used, or kJ converted to kcal. Only products with all three macronutrients, energy and a purchased weight or volume are included; products reporting polyols are excluded from the three-ring estimate. Fibre, alcohol and label rounding can mean the three shares do not sum to 100%. Rings show energy shares, not progress towards a target. Saturated fat uses 9 kcal/g and has its own coverage. The gram breakdown includes all products with that nutrient, so its coverage can differ from the rings. French adult references: carbohydrates 40–55%, fat 35–40%, protein 10–20%, saturated fat maximum 12% of energy (ANSES, Table 4). Fibre 30 g/day and sugars excluding lactose maximum 100 g/day are general daily references; no daily intake or lactose-free sugar total is inferred from the receipt.",
+      "macroEnergyEstimate": "Estimated energy shares",
+      "selectAll": "Select all",
+      "unselectAll": "Unselect all"
     },
     "history": "History"
   },

@@ -2,4 +2,4 @@ Official, unmodified Open Food Facts score artwork.
 
 Source: https://github.com/openfoodfacts/openfoodfacts-server/tree/main/html/images/attributes/src
 
-Nutri-Score uses the standard badge because the available product grade does not identify the calculation version. Forest footprint uses the 2026 badge to match forest_footprint_2026.
+Nutri-Score uses the standard badge because the available product grade does not identify the calculation version.
