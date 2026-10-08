@@ -4,11 +4,13 @@ export function isCategoryPriced(item) {
 }
 
 export function quantityUnitKey(item) {
-  return isCategoryPriced(item) ? 'review.unitKg' : 'review.unitPackage'
+  if (item && item.barcodeEntry) return 'review.unitPackage'
+  if (item && item.barcode && !item.noBarcodeAvailable) return 'review.unitPackage'
+  return 'review.unitKg'
 }
 
 export function quantityStep(item) {
-  return isCategoryPriced(item) ? '0.001' : '1'
+  return quantityUnitKey(item) === 'review.unitKg' ? '0.001' : '1'
 }
 
 export function parseOptionalNumber(value) {

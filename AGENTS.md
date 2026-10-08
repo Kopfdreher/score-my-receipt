@@ -19,7 +19,7 @@ Human setup lives in `README.md`. Follow this file for implementation contracts.
 | Pair | Route | View | May edit |
 | --- | --- | --- | --- |
 | A Capture | `/upload` (`/` redirects) | `src/views/Upload.vue` | Sign-in is `/sign-in`. Capture UI, `createProof`, `getReceiptItems`, `setReceiptFromCapture` |
-| B Adjust | `/review` | `src/views/Review.vue` | Item UI, `updateItem` / `addItem` / `removeItem`, `createReceiptItem` / `updateReceiptItem` / `createPrice` |
+| B Review | `/review` | `src/views/Review.vue` | Item UI, `updateItem` / `addItem` / `removeItem`, `createReceiptItem` / `updateReceiptItem` / `createPrice` |
 | C Score | `/score` | `src/views/Score.vue` | Score UI; **read** `getItems` / `getReceipt` only |
 
 Do not implement another pair's screen. Suggested branches: `feat/capture`, `feat/review`, `feat/score`. High-conflict files: `src/store.js`, `src/router.js`, `src/i18n/locales/en.json`.

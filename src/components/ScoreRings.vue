@@ -25,7 +25,9 @@
         :aria-label="$t('score.ui.rings.slide', { index, total: rings.length, title: ring.title })"
       >
         <header class="score-rings__head">
-          <v-icon :icon="ring.icon" size="20" />
+          <span class="score-rings__badge" aria-hidden="true">
+            <v-icon :icon="ring.icon" size="22" />
+          </span>
           <div>
             <h2>{{ ring.title }}</h2>
             <p>{{ $t(`score.ui.rings.caption.${ring.kind}`) }}</p>
@@ -100,7 +102,7 @@ const GAP = 3 // space between two arcs, in the same unit as the circumference
 // Grades counted as "good" in the center of each ring
 const GOOD = { nutriscore: ['a', 'b'], nova: ['1', '2'], greenScore: ['a-plus', 'a', 'b'] }
 const ACCENTS = { nutriscore: '#245b3f', nova: '#703b12', greenScore: '#245b3f' }
-const ICONS = { nutriscore: 'mdi-heart-outline', nova: 'mdi-factory', greenScore: 'mdi-leaf' }
+const ICONS = { nutriscore: 'mdi-heart', nova: 'mdi-factory', greenScore: 'mdi-leaf' }
 
 export default {
   name: 'ScoreRings',
@@ -231,7 +233,7 @@ export default {
 </script>
 
 <style scoped>
-.score-rings { max-width: 34rem; margin: 0.5rem auto 2rem; }
+.score-rings { max-width: none; margin: 0 0 1.25rem; }
 .score-rings__track {
   display: grid;
   grid-auto-flow: column;
@@ -259,7 +261,17 @@ export default {
   text-align: center;
 }
 .score-rings__head { display: flex; align-items: center; gap: 0.6rem; align-self: stretch; text-align: left; }
-.score-rings__head > .v-icon { padding: 1.1rem; border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.score-rings__badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, #fff);
+}
+.score-rings__badge :deep(.v-icon) { color: var(--accent); }
 .score-rings__head :deep(.info-tip) { margin-left: auto; }
 .score-rings__head h2 { margin: 0; color: var(--accent); font-size: 1.05rem; font-weight: 600; font-family: inherit; }
 .score-rings__head p { margin: 0; color: var(--score-muted, #52605a); font-size: 0.8rem; }

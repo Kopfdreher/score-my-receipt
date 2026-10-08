@@ -1,5 +1,9 @@
 <template>
   <main class="sign-in">
+    <div class="sign-in__media" aria-hidden="true">
+      <div class="sign-in__image" />
+      <div class="sign-in__veil" />
+    </div>
     <div class="sign-in__layout">
       <section class="sign-in__intro sign-in__reveal sign-in__reveal--1">
         <p class="sign-in__eyebrow">
@@ -70,10 +74,19 @@
               class="sign-in__field sign-in__field--password"
               :disabled="loading"
               :placeholder="$t('signIn.passwordPlaceholder')"
-              :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
               required
-              @click:append-inner="showPassword = !showPassword"
-            />
+            >
+              <template #append-inner>
+                <v-btn
+                  type="button"
+                  :icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
+                  variant="text"
+                  size="small"
+                  :aria-label="showPassword ? $t('signIn.hidePassword') : $t('signIn.showPassword')"
+                  @click.stop="showPassword = !showPassword"
+                />
+              </template>
+            </v-text-field>
 
             <v-btn
               type="submit"
@@ -181,8 +194,29 @@ export default {
 .sign-in {
   position: relative;
   min-height: 100dvh;
-  color: var(--score-ink, #24332d);
-  background: var(--score-canvas, #f2f4f3);
+  overflow: hidden;
+  color: #F7FBF4;
+  background: #16382A;
+}
+
+.sign-in__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.sign-in__image {
+  position: absolute;
+  inset: 0;
+  background-image: url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2200&q=80');
+  background-size: cover;
+  background-position: center;
+}
+
+.sign-in__veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(22, 56, 42, 0.72);
 }
 
 .sign-in__layout {
@@ -212,7 +246,7 @@ export default {
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
-  color: var(--score-muted, #52605a);
+  color: rgba(247, 251, 244, 0.78);
 }
 
 .sign-in__brand {
@@ -228,7 +262,7 @@ export default {
   max-width: 28ch;
   font-size: 1.02rem;
   line-height: 1.45;
-  color: var(--score-muted, #52605a);
+  color: rgba(247, 251, 244, 0.86);
 }
 
 .sign-in__auth {

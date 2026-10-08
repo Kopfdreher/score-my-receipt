@@ -79,7 +79,6 @@
             </div>
 
             <div class="review-row__barcode">
-              <span class="review-row__field-label">{{ $t('review.barcodeOrCategory') }}</span>
               <div v-if="showCategoryField" class="review-row__barcode-wrap review-row__barcode-wrap--category">
                 <v-autocomplete
                   v-model:search="categorySearch"
@@ -101,16 +100,6 @@
                   @update:model-value="onCategoryChange"
                   @update:search="onCategorySearch"
                 />
-                <v-btn
-                  icon="mdi-barcode-scan"
-                  variant="tonal"
-                  color="primary"
-                  size="small"
-                  density="comfortable"
-                  :aria-label="$t('review.scanBarcode')"
-                  :title="$t('review.useBarcodeInstead')"
-                  @click="switchToBarcodeEntry"
-                />
               </div>
               <div v-else class="review-row__barcode-wrap">
                 <v-text-field
@@ -123,6 +112,7 @@
                   autocomplete="off"
                   class="review-row__input review-row__input--barcode"
                   :placeholder="barcodePlaceholder"
+                  :aria-label="$t('review.barcode')"
                   @update:model-value="onBarcodeTyped"
                   @blur="onBarcodeBlur"
                 />
@@ -134,17 +124,6 @@
                   density="comfortable"
                   :aria-label="$t('review.scanBarcode')"
                   @click="onContentClick('scan')"
-                />
-                <v-btn
-                  v-if="!item.barcode"
-                  icon="mdi-tag-outline"
-                  variant="text"
-                  color="primary"
-                  size="small"
-                  density="comfortable"
-                  :aria-label="$t('review.useCategory')"
-                  :title="$t('review.useCategory')"
-                  @click="switchToCategoryEntry"
                 />
               </div>
             </div>
@@ -412,20 +391,6 @@ export default {
         this.categorySearch = ''
       }
     },
-    switchToBarcodeEntry() {
-      this.preferBarcodeEntry = true
-      this.$emit('update', this.item.id, {
-        noBarcodeAvailable: false
-      })
-    },
-    switchToCategoryEntry() {
-      this.preferBarcodeEntry = false
-      this.$emit('update', this.item.id, {
-        barcode: null,
-        noBarcodeAvailable: true,
-        verified: false
-      })
-    },
     shouldIgnoreSwipe(target) {
       if (!(target instanceof Element)) return false
       // Don't start a swipe on editors or the product open-edit controls —
@@ -629,8 +594,9 @@ export default {
 .review-row__cols {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr) auto auto;
-  height: 88px;
-  overflow: hidden;
+  min-height: 88px;
+  height: auto;
+  overflow: visible;
   grid-template-areas:
     'product text status chevron'
     'product price status chevron';
@@ -685,8 +651,8 @@ export default {
 }
 
 .review-row__product {
-  align-self: stretch;
-  height: 100%;
+  align-self: start;
+  height: 88px;
 }
 
 .review-row__image-button {
@@ -715,7 +681,7 @@ export default {
 
 .review-row__image--empty {
   color: rgba(14, 36, 28, 0.3);
-  background: linear-gradient(135deg, #F0F5EF 0%, #E4ECE3 100%);
+  background: #F0F5EF;
 }
 
 .review-row__image--user {
@@ -904,13 +870,13 @@ export default {
   }
 
   .review-row__cols {
-    grid-template-columns: 2.25rem 3.25rem minmax(8rem, 1fr) minmax(13rem, 15rem) 8.5rem 10.5rem;
+    grid-template-columns: 2.25rem 3.25rem minmax(8rem, 1fr) minmax(16.5rem, 18rem) 8.5rem 10.5rem;
     grid-template-areas: none;
     gap: 0;
     row-gap: 0;
     height: auto;
     overflow: visible;
-    min-width: 50rem;
+    min-width: 54rem;
     padding: 0.15rem 0;
   }
 
@@ -928,6 +894,13 @@ export default {
     grid-area: auto;
     align-self: center;
     padding: 0.4rem 0.5rem;
+  }
+
+  .review-row__barcode {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
   }
 
   .review-row__status {

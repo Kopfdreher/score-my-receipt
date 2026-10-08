@@ -1,9 +1,10 @@
 <template>
   <v-app class="app-shell">
-    <div v-if="showTopNav" class="app-topnav">
+    <div v-if="showChrome" class="app-topnav">
       <UserSessionBar />
     </div>
     <router-view />
+    <AppTabBar v-if="showChrome" />
   </v-app>
 </template>
 
@@ -13,10 +14,11 @@ import { defineAsyncComponent } from 'vue'
 export default {
   name: 'App',
   components: {
-    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue'))
+    UserSessionBar: defineAsyncComponent(() => import('@/components/UserSessionBar.vue')),
+    AppTabBar: defineAsyncComponent(() => import('@/components/AppTabBar.vue'))
   },
   computed: {
-    showTopNav() {
+    showChrome() {
       return this.$route.name !== 'sign-in'
     }
   }
@@ -51,6 +53,7 @@ html {
   height: 100%;
   height: 100dvh;
   overflow: hidden;
+  background: #16382A;
 }
 
 html,
@@ -69,7 +72,7 @@ body {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   font-family: var(--font-body);
-  background: var(--score-canvas);
+  background: #16382A;
   color: var(--score-ink);
   touch-action: manipulation;
 }
@@ -85,7 +88,7 @@ body {
   min-height: 100dvh !important;
   max-height: 100dvh !important;
   overflow: hidden !important;
-  background: transparent !important;
+  background: #16382A !important;
   padding-top: var(--safe-top);
   padding-right: var(--safe-right);
   padding-bottom: var(--safe-bottom);
@@ -97,6 +100,10 @@ body {
   flex-shrink: 0;
 }
 
+.app-shell > .v-application__wrap > :not(.app-topnav):not(.app-tabbar) {
+  flex: 1 0 auto;
+}
+
 .app-shell > .v-application__wrap {
   min-height: 0 !important;
   height: 100% !important;
@@ -106,16 +113,17 @@ body {
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
+  background: #16382A;
 }
 
 .app-topnav {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 70;
   flex: 0 0 auto;
   width: 100%;
-  padding: 0.55rem 0.65rem 0.4rem;
-  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
+  padding: 0.85rem 1.15rem;
+  background: #16382A;
   border-bottom: 1px solid rgba(232, 242, 230, 0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -133,6 +141,35 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.review-mode {
+  display: flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.review-mode__option {
+  flex: 1;
+  min-height: 2.15rem;
+  padding: 0.3rem 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--score-muted, #52605a);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-mode__option--active {
+  background: #1F6B4A;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff;
+  box-shadow: none;
 }
 
 /* Home-screen / standalone Safari: feel like a native shell */

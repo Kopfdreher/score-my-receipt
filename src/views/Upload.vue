@@ -1,11 +1,5 @@
 <template>
   <main class="upload">
-    <header class="upload__header">
-      <p class="upload__brand">
-        {{ $t('app.name') }}
-      </p>
-    </header>
-
     <section class="upload__hero">
       <h1 class="upload__title">
         {{ $t('upload.title') }}
@@ -33,8 +27,10 @@
         {{ $t('upload.scanCta') }}
       </v-btn>
 
-      <p class="upload__hint">
-        {{ $t('upload.hint') }}
+      <p v-if="busy" class="upload__steps" aria-live="polite">
+        <span :class="{ 'upload__step--active': phase === 'uploading' }">{{ $t('upload.stepUpload') }}</span>
+        <span :class="{ 'upload__step--active': phase === 'extracting' }">{{ $t('upload.stepRead') }}</span>
+        <span :class="{ 'upload__step--active': phase === 'enriching' }">{{ $t('upload.stepDetails') }}</span>
       </p>
 
       <input
@@ -144,7 +140,7 @@ export default {
           this.busy = false
         })
     },
-    // Fetch Open Food Facts photo + details for every barcode so Adjust opens ready.
+    // Fetch Open Food Facts photo + details for every barcode so Review opens ready.
     attachProductDetails(items) {
       const withBarcode = items.filter((item) => item.barcode)
       if (!withBarcode.length) return Promise.resolve()
@@ -262,58 +258,19 @@ export default {
 
 <style scoped>
 .upload {
-  min-height: 100dvh;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
   padding: 1.5rem;
   color: var(--score-ink, #24332d);
   background: var(--score-canvas, #f2f4f3);
 }
 
-.upload__header {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-
-.upload__brand {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-.upload__header-actions {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  width: 100%;
-}
-
-@media (min-width: 600px) {
-  .upload__header {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 3rem;
-  }
-
-  .upload__brand {
-    font-size: 1.35rem;
-  }
-
-  .upload__header-actions {
-    width: auto;
-    max-width: min(36rem, 70%);
-  }
-}
-
 .upload__hero {
   width: min(32rem, 100%);
-  margin: 0 auto;
-  padding-top: clamp(2rem, 12vh, 6rem);
+  margin: 0;
   text-align: center;
 }
 
@@ -332,9 +289,17 @@ export default {
   line-height: 1.5;
 }
 
-.upload__hint {
-  margin: 1rem 0 0;
+.upload__steps {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0;
   color: var(--score-muted, #52605a);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.upload__step--active {
+  color: var(--score-ink, #24332d);
 }
 </style>

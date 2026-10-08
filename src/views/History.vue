@@ -2,9 +2,6 @@
   <main class="history">
     <header class="history__header">
       <div>
-        <p class="history__brand">
-          {{ $t('app.name') }}
-        </p>
         <h1 class="history__title">
           {{ $t('history.title') }}
         </h1>
@@ -62,8 +59,14 @@
       </div>
 
       <div v-else-if="!filteredEntries.length" class="history__empty">
-        <p>{{ $t('history.empty') }}</p>
-        <v-btn color="primary" variant="tonal" size="small" :to="{ name: 'upload' }">
+        <p>{{ historyEmptyMessage }}</p>
+        <v-btn
+          v-if="!hasHistory"
+          color="primary"
+          variant="tonal"
+          size="small"
+          :to="{ name: 'upload' }"
+        >
           {{ $t('history.goCapture') }}
         </v-btn>
       </div>
@@ -121,15 +124,6 @@
         </li>
       </ul>
     </section>
-
-    <footer class="history__footer">
-      <v-btn variant="text" class="history__back" :to="{ name: 'upload' }">
-        {{ $t('history.back') }}
-      </v-btn>
-      <v-btn color="primary" variant="tonal" :to="{ name: 'review' }">
-        {{ $t('history.goReview') }}
-      </v-btn>
-    </footer>
   </main>
 </template>
 
@@ -152,6 +146,13 @@ export default {
   },
   computed: {
     ...mapStores(useAppStore),
+    hasHistory() {
+      return this.appStore.getHistorySummaries.length > 0
+    },
+    historyEmptyMessage() {
+      if (this.hasHistory) return this.$t('history.noMatches')
+      return this.$t('history.empty')
+    },
     filteredEntries() {
       const query = String(this.searchQuery || '').trim().toLowerCase()
       return this.appStore.getHistorySummaries.filter((entry) => {
@@ -243,7 +244,7 @@ export default {
 
 <style scoped>
 .history {
-  min-height: 100dvh;
+  min-height: 0;
   padding: 1.25rem;
   padding-bottom: 5rem;
   color: var(--score-ink, #24332d);
@@ -266,13 +267,6 @@ export default {
     justify-content: space-between;
     gap: 1rem;
   }
-}
-
-.history__brand {
-  margin: 0 0 0.2rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--score-muted, #52605a);
 }
 
 .history__title {
@@ -385,22 +379,5 @@ export default {
 
 .history__empty p {
   margin: 0;
-}
-
-.history__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  width: min(56rem, 100%);
-  margin-top: 1rem;
-  padding: 0.65rem 0.8rem;
-  border-radius: 14px;
-  background: linear-gradient(160deg, #16382A 0%, #0E241C 100%);
-}
-
-.history__back {
-  color: #E8F2E6 !important;
 }
 </style>

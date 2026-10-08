@@ -131,7 +131,7 @@ export default {
 }
 </script>
 <style scoped>
-.category-chart { padding: 1.1rem; border: 1px solid var(--score-border, #afb9b4); border-radius: 0.75rem; background: var(--score-surface, #ffffff); }
+.category-chart { padding: 1.1rem; border: 0; border-radius: 0.75rem; background: var(--score-surface, #ffffff); }
 header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 h3 { font-size: 1rem; font-weight: 600; margin: 0; }
 .category-chart__overview { display: flex; align-items: center; gap: 1.5rem; margin-top: 0.75rem; }

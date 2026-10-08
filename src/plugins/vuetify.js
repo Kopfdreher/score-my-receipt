@@ -4,15 +4,17 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
+import { phosphor } from './phosphorIcons'
 
 export const vuetify = createVuetify({
   components,
   directives,
   icons: {
-    defaultSet: 'mdi',
+    defaultSet: 'phosphor',
     aliases,
     sets: {
-      mdi
+      mdi,
+      phosphor
     }
   },
   theme: {

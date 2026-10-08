@@ -2,7 +2,7 @@
 
 A Vue.js frontend for a receipt upload tool, aligned with the [Open Prices frontend](https://github.com/openfoodfacts/open-prices-frontend) stack so it can later be contributed upstream.
 
-Three-screen app. Capture, Adjust, and Score can be built in parallel against a shared Pinia session. Adjust and Score load mock items until Capture writes a real receipt.
+Three-screen app. Capture, Review, and Score can be built in parallel against a shared Pinia session. Review and Score load mock items until Capture writes a real receipt.
 
 ## Team ownership
 

@@ -16,9 +16,6 @@
       <v-alert v-if="storageError" type="warning" color="#703b12" variant="tonal">
         {{ $t('score.ui.history.error') }}
       </v-alert>
-      <v-alert v-if="isMock" class="score__alert" type="info" color="#174f78" variant="tonal" density="compact">
-        {{ $t('score.mockBanner') }}
-      </v-alert>
       <div v-if="isLoading" class="score__state">
         <v-progress-circular indeterminate /><p>{{ $t('score.loading') }}</p>
       </div>
@@ -65,7 +62,7 @@
           </div>
           <div class="score__glance-grid">
             <template v-for="row in visibleGlance" :key="row.key">
-              <button v-if="row.key === 'macronutrients'" type="button" class="score__glance-row" :class="{ 'score__glance-row--open': ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) }" style="--accent: #43524b" :aria-expanded="['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" aria-controls="glance-macronutrients" @click="openGlance = ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) ? null : 'macronutrients'">
+              <button v-if="row.key === 'macronutrients'" type="button" class="score__glance-row" :class="{ 'score__glance-row--open': ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) }" style="--accent: #356d91" :aria-expanded="['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" aria-controls="glance-macronutrients" @click="openGlance = ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) ? null : 'macronutrients'">
                 <span class="score__glance-head">
                   <v-icon icon="mdi-food-apple-outline" size="18" />
                   <span class="score__glance-label">{{ $t('score.ui.glance.macronutrients') }}</span>
@@ -75,7 +72,7 @@
                 <span class="score__glance-value"><span>{{ ['carbohydrates', 'fat', 'proteins'].map(key => $t(`score.nutrients.${key}`)).join(' · ') }}</span></span>
               </button>
               <v-expand-transition>
-                <div v-if="row.key === 'macronutrients' && ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" id="glance-macronutrients" class="score__glance-detail" style="--accent: #43524b">
+                <div v-if="row.key === 'macronutrients' && ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" id="glance-macronutrients" class="score__glance-detail" style="--accent: #356d91">
                   <div class="score__card-heading">
                     <h3>{{ $t('score.ui.macroDistribution') }}</h3>
                     <InfoTip :title="$t('score.ui.glance.macronutrients')" :text="$t('score.ui.macroCalculation')" :sources="macroSources" />
@@ -368,7 +365,7 @@
                 </div>
               </div>
               <div class="score__product-meta">
-                <span>{{ $t('score.ui.purchased', { quantity: product.quantity }) }}</span>
+                <span>{{ $t('score.ui.purchased', { quantity: product.quantity, unit: product.barcode ? $t('review.unitPackage') : $t('review.unitKg') }) }}</span>
                 <span v-if="product.grams !== null">{{ formatGrams(product.grams) }}</span>
                 <span v-else-if="product.ml !== null">{{ formatMl(product.ml) }}</span>
                 <strong>{{ product.lineTotal !== null ? formatMoney(product.lineTotal) : $t('score.noData') }}</strong>
@@ -380,13 +377,6 @@
       <p v-else>
         {{ $t('score.empty') }}
       </p>
-      <div class="score__actions">
-        <v-btn variant="outlined" prepend-icon="mdi-arrow-left" @click="$router.push({ name: 'review' })">
-          {{ $t('score.back') }}
-        </v-btn><v-btn color="primary" prepend-icon="mdi-line-scan" @click="$router.push({ name: 'upload' })">
-          {{ $t('score.scanAnother') }}
-        </v-btn>
-      </div>
     </div>
   </main>
 </template>
@@ -478,7 +468,6 @@ export default {
       return Number.isNaN(date.getTime()) ? this.receipt.date : new Intl.DateTimeFormat(this.$i18n.locale, { dateStyle: 'medium' }).format(date)
     },
     items() { return this.appStore.getItems },
-    isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
     isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
     barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
     estimateRequests() {
@@ -501,17 +490,17 @@ export default {
       const count = (n, unit) => ({ value: this.formatNumber(n), unit: this.$t(`score.ui.glance.units.${unit}`, n) })
       // No product known for a row: show a dash, never a misleading 0
       const rows = [
-        { key: 'highlights', icon: 'mdi-magnify', color: '#43524b', known: this.highlightKnown, ...count(this.improvements.length, 'products') },
+        { key: 'highlights', icon: 'mdi-magnify', color: '#6b4c9a', known: this.highlightKnown, ...count(this.improvements.length, 'products') },
         { key: 'macronutrients' },
         { key: 'spending', icon: 'mdi-cart-outline', color: '#174f78', target: 'products', known: this.pricedProducts.length, value: this.pricedProducts.length ? this.formatMoney(this.totalSpent) : '—', unit: '' },
-        { key: 'weight', icon: 'mdi-weight', color: '#43524b', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
-        { key: 'sugars', icon: 'mdi-cube-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
-        { key: 'salt', icon: 'mdi-shaker-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
-        { key: 'saturatedFat', icon: 'mdi-water-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.saturatedFat.known, ...grams(this.nutrients.saturatedFat.grams) },
-        { key: 'additives', icon: 'mdi-flask-outline', color: '#43524b', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
-        { key: 'co2', icon: 'mdi-molecule-co2', color: '#43524b', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
-        { key: 'organic', icon: 'mdi-sprout-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[0].items.length, 'products') },
-        { key: 'fairTrade', icon: 'mdi-handshake-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[1].items.length, 'products') }
+        { key: 'weight', icon: 'mdi-weight', color: '#3d6e8c', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
+        { key: 'sugars', icon: 'mdi-cube-outline', color: '#c46a1a', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
+        { key: 'salt', icon: 'mdi-shaker-outline', color: '#2f6f9f', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
+        { key: 'saturatedFat', icon: 'mdi-water-outline', color: '#c45c26', target: 'nutrients', known: this.nutrients.saturatedFat.known, ...grams(this.nutrients.saturatedFat.grams) },
+        { key: 'additives', icon: 'mdi-flask-outline', color: '#7a4e9a', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
+        { key: 'co2', icon: 'mdi-molecule-co2', color: '#5c6b8a', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
+        { key: 'organic', icon: 'mdi-sprout-outline', color: '#2f7d46', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[0].items.length, 'products') },
+        { key: 'fairTrade', icon: 'mdi-handshake-outline', color: '#c46b2a', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[1].items.length, 'products') }
       ]
       return rows.map(row => ({ ...(row.known ? row : { ...row, value: '—', unit: '' }), ...this.glanceStatus(row.key) }))
     },
@@ -594,10 +583,6 @@ export default {
     sortReverse: 'savePreferences'
   },
   mounted() {
-    const receipt = this.appStore.getReceipt
-    const allowMock = this.$route.query.mock === '1'
-      || (!receipt.proofId && !receipt.historyId && !this.items.length)
-    if (allowMock) this.appStore.loadMockReceipt()
     this.initializing = false
     this.loadDetails()
   },
@@ -730,22 +715,22 @@ export default {
   --score-tint: #e7ebe9;
   --score-focus: #174f78;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased;
-  min-height: 100dvh; padding: 1.5rem; color: var(--score-ink); background: #f2f4f3;
+  min-height: 0; padding: 1.25rem 0 0; color: var(--score-ink); background: #f2f4f3;
+  display: flex; flex-direction: column;
 }
 
 .score :deep(.v-btn:focus-visible), .score :deep(.v-field:focus-within) { outline: 3px solid var(--score-focus); outline-offset: 3px; }
-.score__content { width: min(68rem, 100%); margin: auto; }
-.score__heading, .score__card-heading, .score__actions { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.score__content { width: 100%; max-width: none; padding: 0 1.25rem 1.25rem; box-sizing: border-box; flex: 1; }
+.score__heading, .score__card-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
 h1, h2 { font-family: inherit; }
-h1 { overflow-wrap: anywhere; font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0.3rem 0 1rem; line-height: 1.15; }
-h2 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.5rem; margin: 0 0 0.5rem; }
-h3 { font-size: 1rem; font-weight: 600; }
-.score__eyebrow { margin: 0 0 0.4rem; font-size: clamp(0.85rem, 1.2vw, 1rem); line-height: 1.5; color: var(--score-muted); letter-spacing: normal; overflow-wrap: anywhere; }
-.score__alert { margin-bottom: 1rem; }
-.score__glance { margin: 0 0 1.5rem; }
+h1 { overflow-wrap: anywhere; font-size: clamp(1.9rem, 5vw, 2.8rem); margin: 0.25rem 0 1.25rem; line-height: 1.15; color: #245b3f; }
+h2 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.5rem; margin: 0 0 0.75rem; color: #245b3f; }
+h3 { font-size: 1rem; font-weight: 600; color: #1F6B4A; }
+.score__eyebrow { margin: 0 0 0.35rem; font-size: clamp(0.85rem, 1.2vw, 1rem); line-height: 1.5; color: #1F6B4A; letter-spacing: normal; overflow-wrap: anywhere; }
+.score__glance { margin: 0 0 1.25rem; }
 .score__glance-heading { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-bottom: 0.75rem; }
-.score__glance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.6rem; }
-.score__glance-row { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: var(--score-surface); color: inherit; text-align: left; font: inherit; }
+.score__glance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.75rem; }
+.score__glance-row { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: color-mix(in srgb, var(--accent, #245b3f) 14%, #fff); color: inherit; text-align: left; font: inherit; }
 button.score__glance-row { cursor: pointer; transition: background 0.15s ease; }
 button.score__glance-row:hover { background: #e2e6e4; }
 .score__glance-row--warning { background: #f1d6d2; }
@@ -756,9 +741,9 @@ button.score__glance-row:hover { background: #e2e6e4; }
 .score__glance-label { font-size: 0.95rem; font-weight: 600; }
 .score__glance-meta { margin-left: auto; color: var(--score-muted); font-size: 0.8rem; }
 .score__glance-chevron { color: var(--score-muted); margin-right: -0.3rem; }
-.score__glance-value { display: flex; align-items: baseline; gap: 0.3rem; }
-.score__glance-value strong { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
-.score__glance-value span { color: var(--score-muted); font-size: 0.95rem; font-weight: 600; }
+.score__glance-value { display: flex; align-items: baseline; gap: 0.3rem; color: var(--accent, #245b3f); }
+.score__glance-value strong { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--accent, #245b3f); }
+.score__glance-value span { color: var(--accent, #245b3f); font-size: 0.95rem; font-weight: 600; }
 .score__glance-grid { grid-auto-flow: row dense; }
 .score__glance-row--open { box-shadow: inset 0 0 0 2px var(--accent); }
 .score__glance-chevron { transition: transform 0.2s ease; }
@@ -783,13 +768,11 @@ button.score__glance-row:hover { background: #e2e6e4; }
 .score__macro-chevron { margin-left: auto; }
 .score__macro-coverage { color: var(--score-muted); font-size: 0.8rem; }
 .score__macro-details { border-top: 1px solid var(--score-rule); margin-top: 1rem; padding-top: 1rem; }
-.score__ring-detail { max-width: 34rem; margin: -1rem auto 2rem; }
+.score__ring-detail { max-width: none; margin: 0 0 1.25rem; }
 .score__glance-row--open .score__glance-chevron { transform: rotate(180deg); }
 
-.score__ring-detail { margin-bottom: 1.5rem; }
-
-.score__pillars { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-.score__pillar { min-width: 0; border: 1px solid var(--score-border); border-radius: 0.75rem; background: var(--score-surface); }
+.score__pillars { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+.score__pillar { min-width: 0; border: 0; border-radius: 0.75rem; background: var(--score-surface); }
 .score__pillar--environment { --score-surface: #eff4ea; --score-tint: #dfead6; background: var(--score-surface); }
 .score__pillar--environment > .score__pillar-heading { color: #245b3f; }
 .score__pillar-heading { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.9rem 1rem; border-radius: 0.7rem; background: var(--score-tint); list-style: none; }
@@ -798,11 +781,11 @@ button.score__glance-row:hover { background: #e2e6e4; }
 .score__pillar[open] > .score__pillar-heading > .v-icon { transform: rotate(180deg); }
 .score__pillar[open] > .score__pillar-heading { border-radius: 0.7rem 0.7rem 0 0; border-bottom: 1px solid var(--score-rule); }
 .score__pillar-body { display: flex; flex-direction: column; padding: 0 1.1rem; }
-.score__pillar-body > .score__card, .score__pillar-body > :deep(.category-chart) { padding: 1.25rem 0; border: 0; border-radius: 0; background: transparent; }
+.score__pillar-body > .score__card, .score__pillar-body > :deep(.category-chart) { margin: 0; padding: 1.25rem 0; border: 0; border-radius: 0; background: transparent; }
 .score__pillar-body > .score__card:not(:first-child), .score__pillar-body > :deep(.category-chart:not(:first-child)) { border-top: 1px solid var(--score-rule); }
-.score__card { padding: 1.1rem; border: 1px solid var(--score-border); border-radius: 0.75rem; background: var(--score-surface); }
+.score__card { padding: 1.1rem; border: 0; border-radius: 0.75rem; background: var(--score-surface); }
 .score__card-heading { margin-bottom: 0.5rem; }
-.score__stat { font-size: clamp(1.3rem, 3vw, 1.85rem); font-weight: 700; margin: 0.5rem 0; }
+.score__stat { font-size: clamp(1.3rem, 3vw, 1.85rem); font-weight: 700; margin: 0.75rem 0; color: #245b3f; }
 .score__coverage, .score__muted, .score__status, .score__product-meta { font-size: 0.8rem; color: var(--score-muted); }
 .score__coverage { margin: 0.45rem 0; }
 .score__status { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem; }
@@ -821,13 +804,13 @@ summary:focus-visible, button:focus-visible, input:focus-visible { outline: 3px 
 .score__shopping-summary::-webkit-details-marker { display: none; }
 .score__receipt-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem 1.5rem; margin: 1rem 0 0; padding: 1rem 0; border-top: 1px solid var(--score-rule); border-bottom: 1px solid var(--score-rule); }
 .score__receipt-place { min-width: 0; flex: 1; }
-.score__receipt-place h3 { margin: 0; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.score__receipt-place h3 { margin: 0; font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; color: #245b3f; }
 .score__receipt-place p { margin: 0.25rem 0 0; font-size: 0.8rem; color: var(--score-muted); }
 .score__receipt-totals { display: flex; align-items: center; gap: 1.5rem; }
 .score__receipt-count { font-size: 0.85rem; color: var(--score-muted); white-space: nowrap; }
 .score__receipt-amount { padding-left: 1.5rem; border-left: 1px solid var(--score-rule); text-align: right; }
 .score__receipt-amount dt { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; font-size: 0.75rem; color: var(--score-muted); }
-.score__receipt-amount dd { margin: 0.15rem 0 0; font-size: 1.4rem; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.score__receipt-amount dd { margin: 0.15rem 0 0; font-size: 1.4rem; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; color: #1F6B4A; }
 .score__receipt-incomplete { flex-basis: 100%; margin: 0; }
 .score__section-title { font-family: inherit; font-size: clamp(1.125rem, 1.5vw, 1.25rem); font-weight: 600; line-height: 1.3; letter-spacing: normal; text-transform: none; }
 .score__shopping-toggle { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--score-accent); font-size: 0.85rem; }
@@ -893,13 +876,12 @@ input { accent-color: var(--score-accent); }
 .score__reasons { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
 .score__reason { background: color-mix(in srgb, var(--reason-color) 20%, var(--score-surface)); color: var(--reason-ink); border: 1px solid color-mix(in srgb, var(--reason-color) 45%, var(--score-border)); border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
 .score__product-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
-.score__actions { flex-wrap: wrap; margin-top: 2rem; }
 .score__state { text-align: center; padding: 3rem; }
 @media (max-width: 760px) { .score__heading { flex-wrap: wrap; } .score__heading-tools { margin-bottom: 1rem; }
 .score__receipt-place { flex-basis: 100%; }
 .score__receipt-totals { width: 100%; justify-content: space-between; }
 .score__shopping-summary { gap: 0.5rem 1rem; } .score__shopping-title { flex-basis: 100%; }
 .score__sort-button { font-size: 0.8rem; }
-.score__shopping .score__product-meta { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; gap: 0.5rem; } .score { padding: 1rem; }
+.score__shopping .score__product-meta { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; gap: 0.5rem; } .score__content { padding-left: 1rem; padding-right: 1rem; }
 }
 </style>

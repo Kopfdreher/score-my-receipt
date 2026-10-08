@@ -2,7 +2,7 @@
   <v-menu open-on-hover open-on-focus :close-on-content-click="false" max-width="340">
     <template #activator="{ props }">
       <button v-bind="props" type="button" class="info-tip" :aria-label="$t('score.ui.about', { title })">
-        <span aria-hidden="true">i</span>
+        <v-icon icon="mdi-information-outline" size="20" />
       </button>
     </template>
     <div class="info-tip__panel">
@@ -23,7 +23,7 @@ export default {
 }
 </script>
 <style scoped>
-.info-tip { flex: none; width: 1.6rem; height: 1.6rem; border: 1px solid currentColor; border-radius: 50%; color: var(--score-muted, #52605a); font: italic 600 0.85rem Georgia, serif; cursor: pointer; }
+.info-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.6rem; height: 1.6rem; padding: 0; border: 0; background: transparent; color: var(--score-muted, #52605a); cursor: pointer; }
 .info-tip:focus-visible { outline: 3px solid var(--score-focus, #174f78); outline-offset: 3px; }
 .info-tip__panel { background: #ffffff; color: #17382a; border: 1px solid #71836f; padding: 1rem; border-radius: 0.75rem; font-size: 0.85rem; box-shadow: 0 6px 24px #0004; }
 .info-tip__panel p { margin: 0.5rem 0; }

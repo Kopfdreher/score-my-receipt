@@ -37,4 +37,4 @@ const items = []
 
 - TypeScript types / empty defaults (`null`, `[]`, `unknown`) are fine
 - Cypress E2E may intercept network **only inside tests** — never ship mock data in app runtime
-- Isolation fixture `src/data/mockReceipt.js` for `/review` and `/score` when the session is empty or `?mock=1`, so Adjust/Score can work before Capture writes API items. Do not treat it as live Open Prices data.
+- Isolation fixture `src/data/mockReceipt.js` for `/review` and `/score` when the session is empty or `?mock=1`, so Review/Score can work before Capture writes API items. Do not treat it as live Open Prices data.
