@@ -97,11 +97,9 @@ const OFF_DETAIL_FIELDS = [
   'traces_tags',
   'ingredients_text',
   'ingredients',
-  'forest_footprint_2026',
   'additives_tags',
   'labels_tags',
-  'ecoscore_data',
-  'forest_footprint_data'
+  'ecoscore_data'
 ]
 const OFF_MAX_RETRIES = 2
 const OFF_RETRY_DELAY_MS = 3000

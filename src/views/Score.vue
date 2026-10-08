@@ -33,10 +33,10 @@
           </button>
         </p>
 
-        <ScoreRings :charts="charts" :titles="ringTitles" :open-kind="ringDetail" @details="kind => ringDetail = ringDetail === kind ? null : kind" />
+        <ScoreRings :charts="charts" :titles="ringTitles" :open-kind="ringDetail" @details="kind => ringDetail = ringDetail === kind ? null : kind" @slide-change="ringDetail = null" />
         <v-expand-transition>
           <div v-if="ringDetail" class="score__ring-detail">
-            <CategoryChart :key="ringDetail" :kind="ringDetail" :title="ringTitles[ringDetail]" :info="$t(`score.ui.info.${ringDetail}`)" :chart="charts[ringDetail]" :sources="ringDetail === 'nova' ? novaSources : ringDetail === 'greenScore' ? greenSources : ringDetail === 'forest' ? forestSources : offSources" open-details />
+            <CategoryChart :key="ringDetail" :kind="ringDetail" :title="ringTitles[ringDetail]" :info="$t(`score.ui.info.${ringDetail}`)" :chart="charts[ringDetail]" :sources="ringDetail === 'nova' ? novaSources : ringDetail === 'greenScore' ? greenSources : offSources" open-details />
           </div>
         </v-expand-transition>
 
@@ -49,6 +49,14 @@
               </template>
               <div class="score__settings-panel">
                 <h3>{{ $t('score.ui.glance.settings') }}</h3>
+                <div class="score__selection-actions">
+                  <v-btn size="small" variant="text" @click="hiddenGlance = []">
+                    {{ $t('score.ui.selectAll') }}
+                  </v-btn>
+                  <v-btn size="small" variant="text" @click="hiddenGlance = glance.map(row => row.key)">
+                    {{ $t('score.ui.unselectAll') }}
+                  </v-btn>
+                </div>
                 <div class="score__choices">
                   <label v-for="row in glance" :key="row.key"><input type="checkbox" :checked="!hiddenGlance.includes(row.key)" @change="toggleGlance(row.key)">{{ $t(`score.ui.glance.${row.key}`) }}</label>
                 </div>
@@ -57,7 +65,69 @@
           </div>
           <div class="score__glance-grid">
             <template v-for="row in visibleGlance" :key="row.key">
-              <button type="button" class="score__glance-row" :class="{ 'score__glance-row--open': openGlance === row.key, [`score__glance-row--${row.tone}`]: row.tone }" :style="{ '--accent': row.color }" :title="row.status || undefined" :aria-expanded="openGlance === row.key" :aria-controls="`glance-${row.key}`" @click="openGlance = openGlance === row.key ? null : row.key">
+              <button v-if="row.key === 'macronutrients'" type="button" class="score__glance-row" :class="{ 'score__glance-row--open': ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) }" style="--accent: #43524b" :aria-expanded="['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" aria-controls="glance-macronutrients" @click="openGlance = ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance) ? null : 'macronutrients'">
+                <span class="score__glance-head">
+                  <v-icon icon="mdi-food-apple-outline" size="18" />
+                  <span class="score__glance-label">{{ $t('score.ui.glance.macronutrients') }}</span>
+                  <span class="score__glance-meta">{{ $t('score.ui.glance.coverage', { known: macronutrientsKnown, total: products.length }) }}</span>
+                  <v-icon icon="mdi-chevron-down" size="20" class="score__glance-chevron" />
+                </span>
+                <span class="score__glance-value"><span>{{ ['carbohydrates', 'fat', 'proteins'].map(key => $t(`score.nutrients.${key}`)).join(' · ') }}</span></span>
+              </button>
+              <v-expand-transition>
+                <div v-if="row.key === 'macronutrients' && ['macronutrients', 'carbohydrates', 'fat', 'proteins'].includes(openGlance)" id="glance-macronutrients" class="score__glance-detail" style="--accent: #43524b">
+                  <div class="score__card-heading">
+                    <h3>{{ $t('score.ui.macroDistribution') }}</h3>
+                    <InfoTip :title="$t('score.ui.glance.macronutrients')" :text="$t('score.ui.macroCalculation')" :sources="macroSources" />
+                  </div>
+                  <p class="score__macro-coverage score__macro-caption">
+                    {{ $t('score.ui.macroEnergyEstimate') }} · {{ coverage(macronutrientsKnown) }}
+                  </p>
+                  <div class="score__macro-profile">
+                    <svg class="score__macro-rings" viewBox="0 0 160 160" role="img" :aria-label="$t('score.ui.macroDistribution')">
+                      <g v-for="(segment, index) in macroProportions.segments" :key="segment.key">
+                        <circle cx="80" cy="80" :r="62 - index * 17" fill="none" stroke="var(--score-rule)" stroke-width="11" />
+                        <circle v-if="segment.share !== null && segment.share > 0" cx="80" cy="80" :r="62 - index * 17" fill="none" :stroke="macroColors[segment.key]" stroke-width="11" stroke-linecap="round" :stroke-dasharray="`${segment.share * 2 * Math.PI * (62 - index * 17)} ${2 * Math.PI * (62 - index * 17)}`" transform="rotate(-90 80 80)">
+                          <title>{{ $t(`score.nutrients.${segment.key}`) }}: {{ formatPercent(segment.share) }}</title>
+                        </circle>
+                      </g>
+                    </svg>
+                    <div class="score__macro-legend">
+                      <button v-for="macro in macroProportions.segments" :key="macro.key" type="button" class="score__macro-item" :class="{ 'score__macro-item--open': openGlance === macro.key }" :aria-expanded="openGlance === macro.key" aria-controls="macronutrient-details" @click="openGlance = openGlance === macro.key ? 'macronutrients' : macro.key">
+                        <span class="score__glance-head"><span class="score__macro-dot" :style="{ background: macroColors[macro.key] }" /><span class="score__glance-label">{{ $t(`score.nutrients.${macro.key}`) }}</span><v-icon icon="mdi-chevron-down" size="20" class="score__glance-chevron score__macro-chevron" /></span>
+                        <span class="score__glance-value"><strong>{{ macro.share === null ? '—' : formatPercent(macro.share) }}</strong><span>{{ $t('score.ui.ofEnergy') }}</span></span>
+                        <span class="score__macro-status" :class="`score__macro-status--${macroReferenceStatus(macro.key, macro.share)}`">{{ macroReferenceLabel(macro.key, macro.share) }}</span>
+                        <span class="score__macro-coverage">{{ $t('score.ui.macroReferenceRange', { range: macroRanges[macro.key].label }) }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="score__macro-reference-list">
+                    <div>
+                      <span>{{ $t('score.nutrients.saturatedFat') }}</span>
+                      <strong>{{ macroProportions.saturatedFat.share === null ? '—' : formatPercent(macroProportions.saturatedFat.share) }}</strong>
+                      <span>{{ $t('score.ui.ofEnergy') }}</span>
+                      <span class="score__macro-status" :class="`score__macro-status--${macroReferenceStatus('saturatedFat', macroProportions.saturatedFat.share)}`">{{ macroReferenceLabel('saturatedFat', macroProportions.saturatedFat.share) }}</span>
+                      <span class="score__macro-coverage">{{ $t('score.ui.saturatedReference') }} · {{ coverage(macroProportions.saturatedFat.known) }}</span>
+                    </div>
+                    <div><span>{{ $t('score.ui.fibreReferenceLabel') }}</span><strong>{{ $t('score.ui.fibreDailyReference') }}</strong></div>
+                    <div><span>{{ $t('score.ui.sugarReferenceLabel') }}</span><strong>{{ $t('score.ui.sugarDailyReference') }}</strong></div>
+                  </div>
+                  <p class="score__macro-coverage score__macro-note">
+                    {{ $t('score.ui.macroReferenceNote') }}
+                    <a href="https://www.anses.fr/sites/default/files/NUT2012SA0103Ra-1.pdf" target="_blank" rel="noopener noreferrer">ANSES ↗</a> · <a href="https://www.efsa.europa.eu/en/topics/topic/dietary-reference-values" target="_blank" rel="noopener noreferrer">EFSA ↗</a>
+                  </p>
+                  <v-expand-transition>
+                    <div v-if="['carbohydrates', 'fat', 'proteins'].includes(openGlance)" id="macronutrient-details" class="score__macro-details">
+                      <h3>{{ $t(`score.nutrients.${openGlance}`) }}</h3>
+                      <p class="score__macro-coverage">
+                        {{ $t('score.ui.wholeBasket') }} · {{ coverage(nutrients[openGlance].known) }}
+                      </p>
+                      <ScoreBreakdown v-bind="glanceDetail" color="#43524b" />
+                    </div>
+                  </v-expand-transition>
+                </div>
+              </v-expand-transition>
+              <button v-if="row.key !== 'macronutrients'" type="button" class="score__glance-row" :class="{ 'score__glance-row--open': openGlance === row.key, [`score__glance-row--${row.tone}`]: row.tone }" :style="{ '--accent': row.color }" :title="row.status || undefined" :aria-expanded="openGlance === row.key" :aria-controls="`glance-${row.key}`" @click="openGlance = openGlance === row.key ? null : row.key">
                 <span class="score__glance-head">
                   <v-icon :icon="row.icon" size="18" /><span class="score__glance-label">{{ $t(`score.ui.glance.${row.key}`) }}</span>
                   <v-icon v-if="row.tone" :icon="row.tone === 'good' ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'" size="16" :aria-label="row.status" role="img" />
@@ -67,7 +137,7 @@
                 <span class="score__glance-value"><strong>{{ row.value }}</strong><span>{{ row.unit }}</span></span>
               </button>
               <v-expand-transition>
-                <div v-if="openGlance === row.key" :id="`glance-${row.key}`" class="score__glance-detail" :style="{ '--accent': row.color }">
+                <div v-if="row.key !== 'macronutrients' && openGlance === row.key" :id="`glance-${row.key}`" class="score__glance-detail" :style="{ '--accent': row.color }">
                   <template v-if="row.key === 'additives'">
                     <div class="score__card-heading">
                       <p>{{ $t('score.ui.additivesFoundIn', additives.products) }}</p>
@@ -124,7 +194,7 @@
                     <AnalysisProductList :products="improvements">
                       <template #default="{ product }">
                         <div class="score__reasons">
-                          <span v-for="reason in product.reasons" :key="reason" class="score__reason">{{ reasonLabel(reason) }}</span>
+                          <span v-for="reason in product.reasons" :key="reason" class="score__reason" :style="reasonStyle(reason)" :title="reasonTitle(reason)">{{ reasonLabel(reason) }}</span>
                         </div>
                       </template>
                     </AnalysisProductList>
@@ -236,6 +306,14 @@
                     <InfoTip :title="$t('score.ui.allergenCheck')" :text="$t('score.ui.info.allergens')" :sources="offSources" />
                   </div>
                   <p class="score__coverage">{{ $t('score.ui.allergenChooseHint') }}</p>
+                  <div class="score__selection-actions">
+                    <v-btn size="small" variant="text" @click="selectedAllergens = [...allergenKeys]">
+                      {{ $t('score.ui.selectAll') }}
+                    </v-btn>
+                    <v-btn size="small" variant="text" @click="selectedAllergens = []">
+                      {{ $t('score.ui.unselectAll') }}
+                    </v-btn>
+                  </div>
                   <div class="score__allergen-choices">
                     <label v-for="allergen in allergenKeys" :key="allergen">
                       <input v-model="selectedAllergens" type="checkbox" :value="allergen">
@@ -280,6 +358,7 @@
             <template #default="{ product }">
               <div class="score__product-grades">
                 <img v-for="badge in productBadges(product)" :key="badge.kind" class="score__product-badge" :src="badge.src" :alt="badge.label" :title="badge.label" loading="lazy">
+                <span v-if="product.greenScoreStatus === 'not-applicable'" class="score__muted">{{ $t('score.ui.greenScoreNotApplicable') }}</span>
                 <div v-if="selectedAllergens.length" class="score__product-allergens">
                   <span v-for="group in productAllergenGroups(product)" :key="group.key" class="score__allergen-mark" :class="`score__allergen-mark--${group.key}`">
                     <v-icon :icon="group.icon" size="16" aria-hidden="true" />
@@ -316,9 +395,11 @@
 import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
-import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
+import openFoodFactsEstimates, { categoryEstimateIngredient } from '@/services/openFoodFactsEstimates'
+import { ALLERGENS, NUTRIENTS, REFERENCE_SOURCES, analyseProducts, distribution, nutrientTotal, macronutrientProportions, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts, SORTS } from '@/utils/basketAnalysis'
 import { receiptSignature } from '@/services/receiptHistory'
 import ADDITIVES from '@/utils/additives.json'
+import { COLORS } from '@/utils/score'
 import CategoryChart from '@/components/CategoryChart.vue'
 import ScoreRings from '@/components/ScoreRings.vue'
 import ScoreBreakdown from '@/components/ScoreBreakdown.vue'
@@ -338,7 +419,6 @@ const SORT_OPTIONS = [
   { key: 'salt', group: 'health' },
   { key: 'fat', group: 'health' },
   { key: 'greenScore', group: 'environment' },
-  { key: 'forest', group: 'environment' },
   { key: 'co2', group: 'environment' }
 ]
 const PREFS_KEY = 'score-my-receipt:analysis-preferences:v1'
@@ -360,7 +440,7 @@ export default {
   data() {
     const prefs = preferences()
     return {
-      fetched: {}, detailsStatus: 'idle', requestId: 0,
+      fetched: {}, categoryEstimates: {}, detailsStatus: 'idle', requestId: 0,
       storageError: false, initializing: true, openGlance: null, ringDetail: null,
       weeklyCarbonReference: 2000 / 52,
       selectedAllergens: prefs.allergens, selectedNutrients: prefs.nutrients,
@@ -377,7 +457,6 @@ export default {
       offSources: [{ label: 'Open Food Facts', url: 'https://world.openfoodfacts.org/data' }],
       novaSources: [{ label: 'Open Food Facts · NOVA', url: 'https://world.openfoodfacts.org/nova' }],
       greenSources: [{ label: 'Open Food Facts · Green-Score', url: 'https://world.openfoodfacts.org/green-score' }],
-      forestSources: [{ label: 'Open Food Facts · Forest footprint', url: 'https://openfoodfacts.github.io/openfoodfacts-server/dev/ref-perl-pod/ProductOpener/ForestFootprint2026.html' }],
       nutrientSources: [{ label: 'Open Food Facts · Nutrient levels', url: 'https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/explain-product-attributes/' }]
     }
   },
@@ -402,28 +481,43 @@ export default {
     isMock() { return this.$route.query.mock === '1' || String(this.receipt.proofId || '').startsWith('mock') },
     isLoading() { return ['uploading', 'extracting'].includes(this.receipt.status) },
     barcodes() { return [...new Set(this.items.map(i => String(i.barcode || '')).filter(code => /^\d{8,14}$/.test(code)))] },
+    estimateCategories() { return [...new Set(this.items.filter(item => !/^\d{8,14}$/.test(String(item.barcode || '')) && categoryEstimateIngredient(item.categoryTag)).map(item => item.categoryTag))] },
     snapshotMatches() { return this.receipt.analysisSnapshot?.signature === receiptSignature(this.receipt) },
-    products() { return this.snapshotMatches ? this.receipt.analysisSnapshot.products : analyseProducts(this.items, this.fetched) },
+    products() { return this.snapshotMatches ? this.receipt.analysisSnapshot.products : analyseProducts(this.items, this.fetched, this.categoryEstimates) },
     glance() {
       const grams = (value) => value === null ? { value: '—', unit: '' } : value >= 1000 ? { value: this.formatNumber(value / 1000, 2), unit: 'kg' } : { value: this.formatNumber(value, value < 10 ? 1 : 0), unit: 'g' }
       const count = (n, unit) => ({ value: this.formatNumber(n), unit: this.$t(`score.ui.glance.units.${unit}`, n) })
       // No product known for a row: show a dash, never a misleading 0
       const rows = [
-        { key: 'highlights', icon: 'mdi-magnify', color: '#703b12', known: this.highlightKnown, ...count(this.improvements.length, 'products') },
+        { key: 'highlights', icon: 'mdi-magnify', color: '#43524b', known: this.highlightKnown, ...count(this.improvements.length, 'products') },
+        { key: 'macronutrients' },
         { key: 'spending', icon: 'mdi-cart-outline', color: '#174f78', target: 'products', known: this.pricedProducts.length, value: this.pricedProducts.length ? this.formatMoney(this.totalSpent) : '—', unit: '' },
-        { key: 'weight', icon: 'mdi-weight', color: '#526156', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
-        { key: 'sugars', icon: 'mdi-cube-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
-        { key: 'salt', icon: 'mdi-shaker-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
-        { key: 'fat', icon: 'mdi-water-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.fat.known, ...grams(this.nutrients.fat.grams) },
-        { key: 'saturatedFat', icon: 'mdi-water-outline', color: '#68452d', target: 'nutrients', known: this.nutrients.saturatedFat.known, ...grams(this.nutrients.saturatedFat.grams) },
-        { key: 'additives', icon: 'mdi-flask-outline', color: '#703b12', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
-        { key: 'co2', icon: 'mdi-molecule-co2', color: '#245b3f', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
+        { key: 'weight', icon: 'mdi-weight', color: '#43524b', target: 'weight', known: this.weight.known, ...grams(this.weight.grams) },
+        { key: 'sugars', icon: 'mdi-cube-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.sugars.known, ...grams(this.nutrients.sugars.grams) },
+        { key: 'salt', icon: 'mdi-shaker-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.salt.known, ...grams(this.nutrients.salt.grams) },
+        { key: 'saturatedFat', icon: 'mdi-water-outline', color: '#43524b', target: 'nutrients', known: this.nutrients.saturatedFat.known, ...grams(this.nutrients.saturatedFat.grams) },
+        { key: 'additives', icon: 'mdi-flask-outline', color: '#43524b', target: 'additives', known: this.additives.known, ...count(this.additives.list.length, 'additives') },
+        { key: 'co2', icon: 'mdi-molecule-co2', color: '#43524b', target: 'co2', known: this.carbon.known, value: this.carbon.kg === null ? '—' : this.formatNumber(this.carbon.kg, 2), unit: this.carbon.kg === null ? '' : 'kg CO₂e' },
         { key: 'organic', icon: 'mdi-sprout-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[0].items.length, 'products') },
         { key: 'fairTrade', icon: 'mdi-handshake-outline', color: '#245b3f', target: 'labels', known: this.labelsKnown, ...count(this.labelGroups[1].items.length, 'products') }
       ]
       return rows.map(row => ({ ...(row.known ? row : { ...row, value: '—', unit: '' }), ...this.glanceStatus(row.key) }))
     },
     visibleGlance() { return this.glance.filter(row => !this.hiddenGlance.includes(row.key)) },
+    macroColors() { return { carbohydrates: '#356d91', fat: '#85622c', proteins: '#39796c' } },
+    macroRanges() {
+      return { carbohydrates: { min: 0.4, max: 0.55, label: '40–55%' }, fat: { min: 0.35, max: 0.4, label: '35–40%' }, proteins: { min: 0.1, max: 0.2, label: '10–20%' }, saturatedFat: { min: 0, max: 0.12 } }
+    },
+    macroSources() {
+      return [
+        ...this.referenceSources,
+        { label: 'ANSES · Adult dietary reference values (Table 4)', url: 'https://www.anses.fr/sites/default/files/NUT2012SA0103Ra-1.pdf' },
+        { label: 'EFSA · Dietary reference values', url: 'https://www.efsa.europa.eu/en/topics/topic/dietary-reference-values' },
+        { label: 'EU · Energy conversion factors (Annex XIV)', url: 'https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX%3A32011R1169' }
+      ]
+    },
+    macroProportions() { return macronutrientProportions(this.products) },
+    macronutrientsKnown() { return this.macroProportions.known },
     // What unfolds under the open "At a glance" row: products with their value and share
     glanceDetail() {
       const total = this.products.length
@@ -434,6 +528,8 @@ export default {
       switch (this.openGlance) {
         case 'spending': return { note: this.$t('score.ui.breakdown.spending'), items: ranked(this.pricedProducts, p => p.lineTotal, p => this.formatMoney(p.lineTotal)), missing: total - this.pricedProducts.length }
         case 'weight': return { note: this.$t('score.ui.breakdown.weight'), items: ranked(this.weight.items, p => p.grams ?? p.ml, p => p.grams !== null ? this.formatGrams(p.grams) : this.formatMl(p.ml)), missing: total - this.weight.known }
+        case 'carbohydrates':
+        case 'proteins':
         case 'sugars':
         case 'salt':
         case 'fat':
@@ -443,8 +539,8 @@ export default {
         default: return { items: [] }
       }
     },
-    ringTitles() { return { nutriscore: this.$t('score.nutriscore'), nova: this.$t('score.ui.processing'), greenScore: this.$t('score.greenScore'), forest: this.$t('score.ui.forest') } },
-    charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore', 'forest'].map(kind => [kind, distribution(this.products, kind)])) },
+    ringTitles() { return { nutriscore: this.$t('score.nutriscore'), nova: this.$t('score.ui.processing'), greenScore: this.$t('score.greenScore') } },
+    charts() { return Object.fromEntries(['nutriscore', 'nova', 'greenScore'].map(kind => [kind, distribution(this.products, kind)])) },
     nutrients() { return Object.fromEntries(Object.keys(NUTRIENTS).map(key => [key, nutrientTotal(this.products, key)])) },
     // Drinks sold by volume are counted as 1 ml ≈ 1 g
     weight() {
@@ -481,7 +577,7 @@ export default {
     items: { handler() { if (!this.initializing) this.loadDetails() }, deep: true },
     selectedAllergens: { handler: 'savePreferences', deep: true },
     selectedNutrients: { handler: 'savePreferences', deep: true },
-    hiddenGlance: { handler() { if (this.hiddenGlance.includes(this.openGlance)) this.openGlance = null; this.savePreferences() }, deep: true },
+    hiddenGlance: { handler() { if (this.hiddenGlance.includes(this.openGlance) || (this.hiddenGlance.includes('macronutrients') && ['carbohydrates', 'fat', 'proteins'].includes(this.openGlance))) this.openGlance = null; this.savePreferences() }, deep: true },
     productSort: 'savePreferences',
     sortReverse: 'savePreferences'
   },
@@ -492,6 +588,12 @@ export default {
   },
   unmounted() { this.requestId += 1 },
   methods: {
+    macroReferenceStatus(key, share) {
+      if (share === null) return 'unknown'
+      const range = this.macroRanges[key]
+      return share < range.min ? 'below' : share > range.max ? 'above' : 'within'
+    },
+    macroReferenceLabel(key, share) { return this.$t(`score.ui.macroStatus.${this.macroReferenceStatus(key, share)}`) },
     glanceStatus(key) {
       const nutrient = key === 'saturatedFat' ? 'saturated-fat' : key
       if (['sugars', 'salt', 'fat', 'saturatedFat'].includes(key)) {
@@ -517,18 +619,17 @@ export default {
       const types = [
         { kind: 'nutriscore', prefix: 'nutriscore', grades: ['a', 'b', 'c', 'd', 'e'] },
         { kind: 'nova', prefix: 'nova-group', grades: ['1', '2', '3', '4'] },
-        { kind: 'greenScore', prefix: 'green-score', grades: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'] },
-        { kind: 'forest', prefix: 'forest-footprint-2026-simple', grades: ['a', 'b', 'c', 'd'] }
+        { kind: 'greenScore', prefix: 'green-score', grades: ['a-plus', 'a', 'b', 'c', 'd', 'e', 'f'] }
       ]
       return types.filter(type => type.grades.includes(product[type.kind])).map(type => ({
         kind: type.kind,
         src: `${import.meta.env.BASE_URL}score-badges/${type.prefix}-${product[type.kind]}.svg`,
-        label: `${this.$t(type.kind === 'forest' ? 'score.ui.forest' : `score.${type.kind}`)} ${product[type.kind] === 'a-plus' ? 'A+' : product[type.kind].toUpperCase()}`
+        label: `${this.$t(`score.${type.kind}`)} ${product[type.kind] === 'a-plus' ? 'A+' : product[type.kind].toUpperCase()}`
       }))
     },
     saveAnalysis() {
       if (!this.items.length || this.snapshotMatches) return
-      const snapshot = { signature: receiptSignature(this.receipt), products: JSON.parse(JSON.stringify(this.products)), savedAt: new Date().toISOString() }
+      const snapshot = { signature: receiptSignature(this.receipt), categoryEstimatesVersion: this.estimateCategories.every(tag => tag in this.categoryEstimates) ? 1 : 0, products: JSON.parse(JSON.stringify(this.products)), savedAt: new Date().toISOString() }
       this.appStore.saveReceiptToHistory('scored', snapshot)
         .then(() => { this.storageError = false })
         .catch(() => { this.storageError = true })
@@ -541,7 +642,8 @@ export default {
       if (this.snapshotMatches) { this.detailsStatus = 'done'; return }
       const requestId = ++this.requestId
       const missing = this.barcodes.filter(code => !(code in this.fetched))
-      if (!missing.length) { this.detailsStatus = 'done'; this.saveAnalysis(); return }
+      const categories = this.estimateCategories.filter(tag => !(tag in this.categoryEstimates))
+      if (!missing.length && !categories.length) { this.detailsStatus = 'done'; this.saveAnalysis(); return }
       this.detailsStatus = 'loading'
       let failed = false
       missing.reduce((chain, code) => chain.then(() => {
@@ -549,7 +651,12 @@ export default {
         return openFoodFactsApi.getProductDetails(code).then(product => {
           if (requestId === this.requestId) this.fetched = { ...this.fetched, [code]: product }
         }).catch(() => { failed = true })
-      }), Promise.resolve()).then(() => {
+      }), Promise.resolve()).then(() => categories.reduce((chain, tag) => chain.then(() => {
+        if (requestId !== this.requestId) return
+        return openFoodFactsEstimates.getCategoryEstimate(tag).then(estimate => {
+          if (requestId === this.requestId) this.categoryEstimates = { ...this.categoryEstimates, [tag]: estimate }
+        }).catch(() => { failed = true })
+      }), Promise.resolve())).then(() => {
         if (requestId === this.requestId) {
           this.detailsStatus = failed ? 'partial' : 'done'
           this.saveAnalysis()
@@ -558,7 +665,15 @@ export default {
     },
     toggleGlance(key) { this.hiddenGlance = this.hiddenGlance.includes(key) ? this.hiddenGlance.filter(hidden => hidden !== key) : [...this.hiddenGlance, key] },
     savePreferences() { try { localStorage.setItem(PREFS_KEY, JSON.stringify({ allergens: this.selectedAllergens, nutrients: this.selectedNutrients, sort: this.productSort, reverse: this.sortReverse, hiddenGlance: this.hiddenGlance })) } catch { /* Browsing with storage disabled still supports session filters. */ } },
-    contributions(items) { return items.map(p => ({ ...p, value: this.$t('score.ui.contribution', { grams: this.formatGrams(p.contribution), percent: this.formatPercent(p.share) }) })) },
+    contributions(items) {
+      const field = NUTRIENTS[this.openGlance]
+      const withoutWeight = this.products.filter(p => p.grams === null && p.ml === null && Number.isFinite(p.nutrients[field]) && p.nutrients[field] >= 0)
+      return [...items, ...withoutWeight].map(p => ({
+        ...p,
+        value: p.contribution == null ? this.$t('score.ui.nutrientPurchaseUnknown') : this.$t('score.ui.contribution', { grams: this.formatGrams(p.contribution), percent: this.formatPercent(p.share) }),
+        per100Value: this.$t(p.grams === null && p.ml !== null ? 'score.ui.nutrientPer100ml' : 'score.ui.nutrientPer100g', { grams: `${this.formatNumber(p.nutrients[field], 4)} g` })
+      }))
+    },
     coverage(known) { return this.$t('score.ui.coverage', { known, total: this.products.length }) },
     formatNumber(value, digits = 0) { return new Intl.NumberFormat(this.$i18n.locale, { maximumFractionDigits: digits }).format(value) },
     formatMoney(value) { return new Intl.NumberFormat(this.$i18n.locale, { style: 'currency', currency: this.receipt.currency || 'EUR' }).format(value) },
@@ -572,6 +687,17 @@ export default {
     additiveName(tag) { return ADDITIVES[tag]?.name || tag.replace(/^en:/, '').toUpperCase() },
     reasonLabel(reason) {
       const [kind, value] = reason.split(':')
+      return kind === 'high' ? this.$t(`score.ui.high.${value}`) : this.$t(`score.meaning.${kind}.${value.toLowerCase()}`)
+    },
+    reasonStyle(reason) {
+      const [kind, value] = reason.split(':')
+      return {
+        '--reason-color': kind === 'high' ? COLORS.nova[4] : COLORS[kind]?.[value.toLowerCase()],
+        '--reason-ink': value === 'D' ? '#794d16' : '#8a3028'
+      }
+    },
+    reasonTitle(reason) {
+      const [kind, value] = reason.split(':')
       return kind === 'high' ? this.$t(`score.ui.high.${value}`) : `${this.$t(`score.${kind}`)} ${value}`
     }
   }
@@ -580,16 +706,16 @@ export default {
 
 <style scoped>
 .score {
-  --score-ink: #17382a;
-  --score-muted: #526156;
-  --score-surface: #fffdf8;
-  --score-border: #b7c0b3;
-  --score-rule: #d8ded2;
+  --score-ink: #24332d;
+  --score-muted: #52605a;
+  --score-surface: #ffffff;
+  --score-border: #afb9b4;
+  --score-rule: #d8dedb;
   --score-accent: #245b3f;
-  --score-tint: #e8efe3;
+  --score-tint: #e7ebe9;
   --score-focus: #174f78;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased;
-  min-height: 100dvh; padding: 1.5rem; color: var(--score-ink); background: #f4f1e9;
+  min-height: 100dvh; padding: 1.5rem; color: var(--score-ink); background: #f2f4f3;
 }
 
 .score :deep(.v-btn:focus-visible), .score :deep(.v-field:focus-within) { outline: 3px solid var(--score-focus); outline-offset: 3px; }
@@ -606,10 +732,10 @@ h3 { font-size: 1rem; font-weight: 600; }
 .score__glance-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.6rem; }
 .score__glance-row { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.85rem 1rem; border-radius: 14px; background: var(--score-surface); color: inherit; text-align: left; font: inherit; }
 button.score__glance-row { cursor: pointer; transition: background 0.15s ease; }
-button.score__glance-row:hover { background: #e9e9e6; }
-.score__glance-row--warning { background: #f8e9e5; }
-.score__glance-row--caution { background: #faf0da; }
-.score__glance-row--good { background: #e8f0e4; }
+button.score__glance-row:hover { background: #e2e6e4; }
+.score__glance-row--warning { background: #f1d6d2; }
+.score__glance-row--caution { background: #f3e3c0; }
+.score__glance-row--good { background: #d4e5d8; }
 .score__glance-head { display: flex; align-items: center; gap: 0.4rem; min-height: 1.5rem; }
 .score__glance-head > .v-icon:first-child, .score__glance-label { color: var(--accent); }
 .score__glance-label { font-size: 0.95rem; font-weight: 600; }
@@ -622,6 +748,26 @@ button.score__glance-row:hover { background: #e9e9e6; }
 .score__glance-row--open { box-shadow: inset 0 0 0 2px var(--accent); }
 .score__glance-chevron { transition: transform 0.2s ease; }
 .score__glance-detail { grid-column: 1 / -1; padding: 0.85rem 1rem 1rem; border-radius: 14px; background: var(--score-surface); }
+.score__macro-caption { margin: 0.75rem 0 0.5rem; }
+.score__macro-profile { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem 2rem; }
+.score__macro-rings { width: clamp(9rem, 22vw, 12rem); flex-shrink: 0; }
+.score__macro-legend { display: grid; gap: 0.5rem; flex: 1; min-width: min(100%, 15rem); }
+.score__macro-reference-list { display: grid; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--score-rule); }
+.score__macro-reference-list > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.75rem; }
+.score__macro-status { font-size: 0.85rem; }
+.score__macro-status--within { color: #245b3f; }
+.score__macro-status--above { color: #8a3028; }
+.score__macro-status--below, .score__macro-status--unknown { color: var(--score-muted); }
+.score__macro-note { margin-top: 1rem; line-height: 1.6; }
+.score__macro-note a { color: inherit; text-decoration: underline; }
+.score__macro-item { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.5rem; border-radius: 0.35rem; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.score__macro-item:hover { background: #e2e6e4; }
+.score__macro-item--open { box-shadow: inset 0 0 0 2px var(--score-muted); }
+.score__macro-item--open .score__glance-chevron { transform: rotate(180deg); }
+.score__macro-dot { width: 0.65rem; height: 0.65rem; border-radius: 50%; flex-shrink: 0; }
+.score__macro-chevron { margin-left: auto; }
+.score__macro-coverage { color: var(--score-muted); font-size: 0.8rem; }
+.score__macro-details { border-top: 1px solid var(--score-rule); margin-top: 1rem; padding-top: 1rem; }
 .score__ring-detail { max-width: 34rem; margin: -1rem auto 2rem; }
 .score__glance-row--open .score__glance-chevron { transform: rotate(180deg); }
 
@@ -678,8 +824,8 @@ summary:focus-visible, button:focus-visible, input:focus-visible { outline: 3px 
 .score__sort-button :deep(.v-btn__content) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .score__sort-button { color: var(--score-accent); text-transform: none; letter-spacing: normal; font-weight: 500; }
 .score__sort-label { color: var(--score-muted); margin-right: 0.5rem; font-weight: 400; }
-.score__sort-menu { background: #fffdf8; color: #17382a; min-width: 16rem; border: 1px solid #b7c0b3; border-radius: 0.5rem; }
-.score__sort-menu :deep(.v-list-subheader) { color: #526156; }
+.score__sort-menu { background: #ffffff; color: #24332d; min-width: 16rem; border: 1px solid #afb9b4; border-radius: 0.5rem; }
+.score__sort-menu :deep(.v-list-subheader) { color: #52605a; }
 .score__product-grades { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
 .score__product-badge { display: block; height: 2.5rem; width: auto; max-width: 100%; object-fit: contain; }
 .score__shopping .score__product-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; margin: 0; }
@@ -706,29 +852,31 @@ summary:focus-visible, button:focus-visible, input:focus-visible { outline: 3px 
 .score__settings-heading::-webkit-details-marker { display: none; }
 .score__settings-heading > span { display: flex; align-items: center; gap: 0.4rem; }
 details[open] > .score__settings-heading .score__expand-icon { transform: rotate(90deg); }
-.score__settings-panel { --score-ink: #17382a; --score-muted: #526156; --score-accent: #245b3f; --score-tint: #e8efe3; --score-focus: #174f78; color: var(--score-ink); background: #fffdf8; padding: 1rem; width: min(24rem, calc(100vw - 2rem)); max-height: 70vh; overflow-y: auto; border: 1px solid #b7c0b3; border-radius: 0.75rem; }
+.score__settings-panel { --score-ink: #24332d; --score-muted: #52605a; --score-accent: #245b3f; --score-tint: #e7ebe9; --score-focus: #174f78; color: var(--score-ink); background: #ffffff; padding: 1rem; width: min(24rem, calc(100vw - 2rem)); max-height: 70vh; overflow-y: auto; border: 1px solid #afb9b4; border-radius: 0.75rem; }
+.score__selection-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem; }
+.score__selection-actions .v-btn { text-transform: none; letter-spacing: normal; color: var(--score-accent); }
 .score__product-additives { margin: 0.3rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--score-muted); }
 .score__product-allergens { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
 .score__settings-panel, .score__sort-menu { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-.score__allergen-mark { display: inline-flex; align-items: flex-start; gap: 0.35rem; font-size: 0.75rem; font-weight: 400; padding: 0.2rem 0.5rem; border-radius: 0.3rem; background: #eef0ed; color: #435046; }
-.score__allergen-mark--contains { background: #f9e5df; color: #803022; }
-.score__allergen-mark--mayContain { background: #fff0dc; color: #703b12; }
+.score__allergen-mark { display: inline-flex; align-items: flex-start; gap: 0.35rem; font-size: 0.75rem; font-weight: 400; padding: 0.2rem 0.5rem; border-radius: 0.3rem; background: #e7ebe9; color: #435046; }
+.score__allergen-mark--contains { background: #f1d6d2; color: #803022; }
+.score__allergen-mark--mayContain { background: #f3e3c0; color: #703b12; }
 .score__allergen-mark strong { font-weight: 600; }
 .score__allergen-mark > .v-icon { flex-shrink: 0; margin-top: 0.1rem; }
 .score__settings-active { background: var(--score-tint); color: var(--score-accent); }
 .score__allergen-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem 0.5rem; margin: 0.75rem 0; }
 .score__allergen-choices label { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem; font-size: 0.85rem; border-radius: 0.3rem; cursor: pointer; }
-.score__allergen-choices label:hover { background: #f2f3ee; }
+.score__allergen-choices label:hover { background: #edf0ee; }
 .score__allergen-choices label:has(input:checked) { background: var(--score-tint); font-weight: 600; }
 .score__allergen-choices input { width: 1rem; height: 1rem; flex-shrink: 0; }
-.score__allergen-key { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; border-top: 1px solid #d8ded2; padding-top: 0.65rem; }
+.score__allergen-key { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; border-top: 1px solid #d8dedb; padding-top: 0.65rem; }
 .score__allergen-key span { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--score-muted); font-size: 0.75rem; }
 .score__choices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
 .score__choices label { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.65rem; font-size: 0.85rem; border: 1px solid #71836f; border-radius: 1rem; cursor: pointer; }
 .score__choices label:has(input:checked) { background: var(--score-tint); border-color: var(--score-accent); }
 input { accent-color: var(--score-accent); }
 .score__reasons { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
-.score__reason { background: #fff0dc; color: #703b12; border: 1px solid #a97438; border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
+.score__reason { background: color-mix(in srgb, var(--reason-color) 20%, var(--score-surface)); color: var(--reason-ink); border: 1px solid color-mix(in srgb, var(--reason-color) 45%, var(--score-border)); border-radius: 1rem; font-size: 0.75rem; padding: 0.2rem 0.55rem; }
 .score__product-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.35rem; }
 .score__actions { flex-wrap: wrap; margin-top: 2rem; }
 .score__state { text-align: center; padding: 3rem; }
