@@ -278,11 +278,6 @@ export function computeBasketDetails(items, products = {}) {
     sum(withCo2, ({ grams, product }) => (product.ecoscore_data.agribalyse[`co2_${part}`] || 0) * grams / 1000)
   ]))
 
-  // Forest: m² of forest per kg (Open Food Facts forest footprint) x kg bought,
-  // plus products flagged for deforestation risk (palm oil, threatened species)
-  const withForest = lines.filter(({ grams, product }) => grams !== null && Number.isFinite(product.forest_footprint_data?.footprint_per_kg))
-  const deforestationRisk = lines.filter(({ product }) => product.ecoscore_data?.adjustments?.threatened_species?.ingredient)
-
   const organic = lines.filter(({ product }) => hasLabel(product, (label) => label === 'en:organic' || label.startsWith('en:eu-organic')))
   const fairTrade = lines.filter(({ product }) => hasLabel(product, (label) => label.includes('fair-trade')))
 
@@ -305,11 +300,6 @@ export function computeBasketDetails(items, products = {}) {
       kg: withCo2.length ? sum(withCo2, ({ grams, product }) => product.ecoscore_data.agribalyse.co2_total * grams / 1000) : null,
       breakdown: co2Breakdown,
       knownItems: unitsOf(withCo2)
-    },
-    forest: {
-      squareMeters: withForest.length ? sum(withForest, ({ grams, product }) => product.forest_footprint_data.footprint_per_kg * grams / 1000) : null,
-      knownItems: unitsOf(withForest),
-      riskItems: unitsOf(deforestationRisk)
     },
     organic: { items: unitsOf(organic), share: ratio(unitsOf(organic), unitsOf(lines)) },
     fairTrade: { items: unitsOf(fairTrade), share: ratio(unitsOf(fairTrade), unitsOf(lines)) }

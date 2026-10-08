@@ -9,7 +9,7 @@
             <span v-else>{{ name }}</span>
           </template>
           <span v-if="product.estimated" class="product-list__estimate">{{ $t('score.ui.estimated') }}</span>
-          <InfoTip v-if="product.estimated" :title="$t('score.ui.estimated')" :text="$t('score.ui.referenceInfo', { name: product.referenceName })" :sources="product.sourceLinks" />
+          <InfoTip v-if="product.estimated" :title="$t('score.ui.estimated')" :text="(product.categoryEstimate ? $t('score.ui.categoryEstimateInfo', { ingredient: product.categoryEstimate.ingredient }) + ' ' : '') + $t('score.ui.referenceInfo', { name: product.referenceName })" :sources="product.sourceLinks" />
         </div>
         <p v-if="showReceiptNames && product.receiptNames?.some(name => !product.names.includes(name))" class="product-list__unknown">
           {{ product.receiptNames.join(' / ') }}
