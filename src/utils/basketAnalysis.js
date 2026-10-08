@@ -120,8 +120,10 @@ export function nutrientTotal(products, key) {
 }
 
 export function carbonTotal(products) {
-  const items = products.filter((p) => p.co2Kg !== null)
-  return { items, known: items.length, kg: items.length ? items.reduce((sum, p) => sum + p.co2Kg, 0) : null }
+  const known = products.filter((p) => p.co2Kg !== null)
+  const kg = known.length ? known.reduce((sum, p) => sum + p.co2Kg, 0) : null
+  const items = known.map(p => ({ ...p, share: kg ? p.co2Kg / kg : 0 })).sort((a, b) => b.co2Kg - a.co2Kg)
+  return { items, known: known.length, kg }
 }
 
 export function additiveSummary(products) {
@@ -166,6 +168,7 @@ export const SORTS = {
   fat: largestFirst((p) => numeric(p.nutrients?.fat_100g) ? p.nutrients.fat_100g : null),
   co2: largestFirst((p) => p.co2Kg),
   price: largestFirst((p) => p.lineTotal),
+  unitPrice: largestFirst((p) => numeric(p.lineTotal) && positive(p.quantity) ? p.lineTotal / p.quantity : null),
   weight: largestFirst((p) => p.grams ?? p.ml)
 }
 
