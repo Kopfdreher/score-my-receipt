@@ -158,7 +158,6 @@
                 @click="onContentClick('preview')"
               >
                 <span class="review-row__price-amount">{{ priceDisplay }}</span>
-                <v-icon icon="mdi-chevron-right" size="18" class="review-row__chevron" />
               </button>
               <div class="review-row__price-wrap">
                 <v-text-field
@@ -176,6 +175,15 @@
                 <span class="review-row__currency">{{ currency }}</span>
               </div>
             </div>
+
+            <button
+              type="button"
+              class="review-row__go"
+              :aria-label="$t('review.reviewItem')"
+              @click="onContentClick('preview')"
+            >
+              <v-icon icon="mdi-chevron-right" size="18" class="review-row__chevron" />
+            </button>
 
             <div class="review-row__qty">
               <span class="review-row__field-label">{{ $t('review.quantity') }}</span>
@@ -619,19 +627,31 @@ export default {
 
 .review-row__cols {
   display: grid;
-  grid-template-columns: 1.1rem 2.6rem minmax(0, 1fr) auto;
-  grid-template-areas: 'status product text price';
+  grid-template-columns: 96px minmax(0, 1fr) auto auto;
+  height: 88px;
+  overflow: hidden;
+  grid-template-areas:
+    'product text status chevron'
+    'product price status chevron';
   align-items: center;
-  gap: 0.55rem;
+  column-gap: 0.55rem;
+  row-gap: 0.12rem;
   width: 100%;
   min-width: 0;
-  padding: 0.6rem 0.65rem;
+  padding: 0 0.45rem 0 0;
 }
 
 .review-row__status { grid-area: status; }
 .review-row__product { grid-area: product; }
-.review-row__text { grid-area: text; }
-.review-row__price { grid-area: price; }
+.review-row__text {
+  grid-area: text;
+  align-self: end;
+}
+.review-row__price {
+  grid-area: price;
+  align-self: start;
+}
+.review-row__go { grid-area: chevron; }
 
 .review-row__barcode,
 .review-row__qty {
@@ -646,6 +666,14 @@ export default {
   padding: 0;
 }
 
+.review-row__text {
+  padding-top: 0.45rem;
+}
+
+.review-row__price {
+  padding-bottom: 0.4rem;
+}
+
 .review-row__status {
   display: flex;
   justify-content: center;
@@ -655,8 +683,15 @@ export default {
   display: none;
 }
 
+.review-row__product {
+  align-self: stretch;
+  height: 100%;
+}
+
 .review-row__image-button {
   display: block;
+  width: 96px;
+  height: 88px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -667,12 +702,14 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  object-fit: contain;
-  border-radius: 0.55rem;
+  width: 96px;
+  height: 88px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 0;
   background: #F0F5EF;
-  border: 1px solid rgba(14, 36, 28, 0.08);
+  border: 0;
+  border-right: 1px solid rgba(14, 36, 28, 0.08);
 }
 
 .review-row__image--empty {
@@ -709,7 +746,7 @@ export default {
 }
 
 .review-row__matched-link {
-  display: block;
+  display: none;
   margin-top: 0.1rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -720,7 +757,7 @@ export default {
 }
 
 .review-row__subline {
-  display: block;
+  display: none;
   margin-top: 0.15rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -738,7 +775,6 @@ export default {
 .review-row__price-display {
   display: inline-flex;
   align-items: center;
-  gap: 0.1rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -748,9 +784,21 @@ export default {
   cursor: pointer;
 }
 
+.review-row__go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0.15rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .review-row__price-amount {
+  color: rgba(14, 36, 28, 0.55);
   font-size: 0.88rem;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -858,8 +906,15 @@ export default {
     grid-template-columns: 2.25rem 3.25rem minmax(8rem, 1fr) minmax(13rem, 15rem) 8.5rem 10.5rem;
     grid-template-areas: none;
     gap: 0;
+    row-gap: 0;
+    height: auto;
+    overflow: visible;
     min-width: 50rem;
     padding: 0.15rem 0;
+  }
+
+  .review-row__go {
+    display: none;
   }
 
   .review-row__status,
@@ -870,6 +925,7 @@ export default {
   .review-row__qty {
     display: block;
     grid-area: auto;
+    align-self: center;
     padding: 0.4rem 0.5rem;
   }
 
@@ -877,9 +933,24 @@ export default {
     display: flex;
   }
 
+  .review-row__product {
+    align-self: center;
+    height: auto;
+  }
+
+  .review-row__image-button {
+    width: auto;
+    height: auto;
+  }
+
   .review-row__image {
     width: 40px;
     height: 40px;
+    min-height: 0;
+    object-fit: cover;
+    border-radius: 0.45rem;
+    border: 1px solid rgba(14, 36, 28, 0.08);
+    border-right: 1px solid rgba(14, 36, 28, 0.08);
   }
 
   .review-row__name {
@@ -888,6 +959,7 @@ export default {
   }
 
   .review-row__matched-link {
+    display: block;
     white-space: normal;
     font-size: 0.75rem;
     text-decoration: underline;

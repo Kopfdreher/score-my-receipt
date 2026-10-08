@@ -241,12 +241,19 @@
 
     <v-dialog
       v-model="previewOpen"
-      max-width="380"
-      content-class="review-preview-dialog"
+      :max-width="previewIsSheet ? '100%' : 380"
+      :location="previewIsSheet ? 'bottom' : 'center'"
+      :transition="previewIsSheet ? 'dialog-bottom-transition' : 'dialog-transition'"
+      :content-class="previewIsSheet ? 'review-preview-dialog review-preview-dialog--sheet' : 'review-preview-dialog'"
       @update:model-value="onPreviewOpenChange"
     >
-      <v-card v-if="previewItem" class="review-preview">
-        <v-card-title class="review-preview__title">
+      <v-card
+        v-if="previewItem"
+        class="review-preview"
+        :class="{ 'review-preview--sheet': previewIsSheet, 'review-preview--dragging': sheetDragging }"
+        :style="sheetDragStyle"
+      >
+        <v-card-title v-if="!previewIsSheet" class="review-preview__title">
           <span class="review-preview__title-text">
             {{ previewItem.off?.product_name || previewItem.name || $t('review.product') }}
           </span>
@@ -259,22 +266,63 @@
             @click="previewOpen = false"
           />
         </v-card-title>
+        <div class="review-preview__hero">
+          <button
+            v-if="previewIsSheet"
+            type="button"
+            class="review-preview__handle"
+            tabindex="-1"
+            aria-hidden="true"
+            @pointerdown="onSheetPointerDown"
+            @pointermove="onSheetPointerMove"
+            @pointerup="onSheetPointerUp"
+            @pointercancel="onSheetPointerUp"
+          />
+          <div v-if="previewIsSheet" class="review-preview__hero-tools">
+            <v-btn
+              class="review-preview__close"
+              icon="mdi-close"
+              variant="text"
+              size="small"
+              density="comfortable"
+              :aria-label="$t('review.closePreview')"
+              @click="previewOpen = false"
+            />
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              color="primary"
+              icon="mdi-camera"
+              :aria-label="$t('review.takeProductPhoto')"
+              @click="openCameraPhotoPicker"
+            />
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              color="primary"
+              icon="mdi-image-plus"
+              :aria-label="previewItem.userPhotoUrl ? $t('review.changeProductPhoto') : $t('review.addProductPhoto')"
+              @click="openGalleryPhotoPicker"
+            />
+          </div>
+          <img
+            v-if="previewImageUrl"
+            :src="previewImageUrl"
+            :alt="previewItem.off?.product_name || previewItem.name || $t('review.product')"
+            class="review-preview__image"
+          >
+          <div
+            v-else
+            class="review-preview__image review-preview__image--empty"
+          >
+            <v-icon icon="mdi-image-off-outline" size="28" />
+          </div>
+        </div>
         <v-card-text class="review-preview__body">
           <div class="review-preview__photo">
-            <img
-              v-if="previewImageUrl"
-              :src="previewImageUrl"
-              :alt="previewItem.off?.product_name || previewItem.name || $t('review.product')"
-              class="review-preview__image"
-            >
-            <div
-              v-else
-              class="review-preview__image review-preview__image--empty"
-            >
-              <v-icon icon="mdi-image-off-outline" size="28" />
-            </div>
             <div class="review-preview__actions review-preview__actions--photo">
               <v-btn
+                v-if="!previewIsSheet"
                 size="x-small"
                 variant="tonal"
                 color="primary"
@@ -283,6 +331,7 @@
                 @click="openCameraPhotoPicker"
               />
               <v-btn
+                v-if="!previewIsSheet"
                 size="x-small"
                 variant="tonal"
                 color="primary"
@@ -660,6 +709,9 @@ export default {
       scanningItemId: null,
       fetchingProducts: false,
       previewOpen: false,
+      previewIsSheet: false,
+      sheetDragY: 0,
+      sheetDragging: false,
       previewItemId: null,
       previewCorrecting: false,
       previewNoBarcodeMode: false,
@@ -693,6 +745,10 @@ export default {
     ...mapStores(useAppStore),
     receipt() {
       return this.appStore.getReceipt
+    },
+    sheetDragStyle() {
+      if (!this.previewIsSheet || !this.sheetDragY) return null
+      return { transform: `translateY(${this.sheetDragY}px)` }
     },
     receiptImageUrl() {
       return this.receipt?.imagePreviewUrl || null
@@ -846,12 +902,21 @@ export default {
   mounted() {
     this.receiptOpen = typeof window !== 'undefined'
       && window.matchMedia('(min-width: 960px)').matches
+    this.previewSheetQuery = window.matchMedia('(max-width: 959px)')
+    this.previewIsSheet = this.previewSheetQuery.matches
+    this.onPreviewSheetChange = (event) => {
+      this.previewIsSheet = event.matches
+    }
+    this.previewSheetQuery.addEventListener('change', this.onPreviewSheetChange)
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
     this.autoFetchMissingProducts()
     if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
   },
   unmounted() {
+    if (this.previewSheetQuery) {
+      this.previewSheetQuery.removeEventListener('change', this.onPreviewSheetChange)
+    }
     if (this.locationSearchTimer) {
       clearTimeout(this.locationSearchTimer)
       this.locationSearchTimer = null
@@ -1304,8 +1369,31 @@ export default {
           this.previewLookingUp = false
         })
     },
+    onSheetPointerDown(event) {
+      if (!this.previewIsSheet) return
+      this.sheetDragging = true
+      this.sheetStartY = event.clientY
+      this.sheetDragY = 0
+      if (event.currentTarget.setPointerCapture) {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }
+    },
+    onSheetPointerMove(event) {
+      if (!this.sheetDragging) return
+      const next = event.clientY - this.sheetStartY
+      this.sheetDragY = next > 0 ? next : 0
+    },
+    onSheetPointerUp() {
+      if (!this.sheetDragging) return
+      const shouldClose = this.sheetDragY > 72
+      this.sheetDragging = false
+      this.sheetDragY = 0
+      if (shouldClose) this.previewOpen = false
+    },
     onPreviewOpenChange(open) {
       if (!open) {
+        this.sheetDragY = 0
+        this.sheetDragging = false
         this.previewCorrecting = false
         this.previewNoBarcodeMode = false
         this.previewBarcodeDraft = ''
@@ -2127,6 +2215,90 @@ export default {
   border: 1px solid rgba(14, 36, 28, 0.08);
 }
 
+.review-preview__hero {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.review-preview--sheet {
+  width: 100%;
+  border-radius: 1rem 1rem 0 0 !important;
+  overflow: hidden;
+}
+
+.review-preview--dragging {
+  transition: none;
+}
+
+.review-preview--sheet .review-preview__hero {
+  display: block;
+}
+
+.review-preview--sheet .review-preview__image {
+  display: block;
+  width: 100%;
+  height: 200px;
+  max-height: 200px;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+}
+
+.review-preview--sheet .review-preview__image--empty {
+  display: flex;
+}
+
+.review-preview__handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  width: 4.5rem;
+  height: 1.6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.review-preview__handle::before {
+  content: '';
+  display: block;
+  width: 2.25rem;
+  height: 4px;
+  margin: 0.45rem auto 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(14, 36, 28, 0.18), 0 1px 2px rgba(14, 36, 28, 0.28);
+}
+
+.review-preview__hero-tools {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.review-preview__hero-tools .review-preview__close {
+  position: static;
+}
+
+.review-preview__close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
 .review-preview__photo {
   display: flex;
   flex-direction: column;
@@ -2349,5 +2521,16 @@ export default {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.45rem;
+}
+</style>
+
+<style>
+.review-preview-dialog--sheet.v-overlay__content {
+  align-self: flex-end;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 1rem 1rem 0 0 !important;
+  overflow: hidden;
 }
 </style>

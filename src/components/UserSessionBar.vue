@@ -53,8 +53,6 @@ export default {
     menuEntries() {
       return [
         { to: '/upload', route: 'upload', icon: 'mdi-camera-outline', title: this.$t('nav.upload') },
-        { to: '/review', route: 'review', icon: 'mdi-pencil-outline', title: this.$t('nav.review') },
-        { to: '/score', route: 'score', icon: 'mdi-leaf', title: this.$t('nav.score') },
         { to: '/history', route: 'history', icon: 'mdi-history', title: this.$t('history.nav') }
       ]
     }
