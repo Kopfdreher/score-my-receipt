@@ -15,45 +15,6 @@ function withUserAgent(headers = {}) {
 
 export default {
   /**
-   * Nominatim search by query
-   * @param {string} q search query
-   */
-  openstreetmapNominatimSearch(q) {
-    const url = `${constants.OSM_NOMINATIM_SEARCH_URL}?q=${encodeURIComponent(q)}&addressdetails=1&format=json&limit=${LOCATION_SEARCH_LIMIT}`
-    return fetch(url, {
-      method: 'GET',
-      headers: withUserAgent(OP_DEFAULT_HEADERS)
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Nominatim search failed (${response.status})`)
-        }
-        return response.json()
-      })
-      .then((data) => data.filter((location) => (
-        !constants.NOMINATIM_RESULT_TYPE_EXCLUDE_LIST.includes(location.type)
-      )))
-  },
-
-  /**
-   * Nominatim lookup by OSM ID
-   * @param {string|number} id OSM ID (without prefix)
-   */
-  openstreetmapNominatimLookup(id) {
-    const url = `${constants.OSM_NOMINATIM_LOOKUP_URL}?osm_ids=N${id},W${id},R${id}&addressdetails=1&format=json`
-    return fetch(url, {
-      method: 'GET',
-      headers: withUserAgent(OP_DEFAULT_HEADERS)
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Nominatim lookup failed (${response.status})`)
-        }
-        return response.json()
-      })
-  },
-
-  /**
    * Photon search by query
    * @param {string} q search query
    * @param {boolean} restrictToShop restrict the search to shops
@@ -107,14 +68,10 @@ export default {
   },
 
   /**
-   * OpenStreetMap search by query
+   * OpenStreetMap shop search by query (Photon).
    * @param {string} q search query
-   * @param {'nominatim'|'photon'} source search backend
    */
-  openstreetmapSearch(q, source = 'nominatim') {
-    if (source === 'photon') {
-      return this.openstreetmapPhotonSearch(q)
-    }
-    return this.openstreetmapNominatimSearch(q)
+  openstreetmapSearch(q) {
+    return this.openstreetmapPhotonSearch(q)
   }
 }

@@ -110,31 +110,16 @@
               {{ $t('review.itemsTitle') }}
               <span v-if="items.length" class="review__count">{{ items.length }}</span>
             </h2>
-            <v-btn
-              color="primary"
-              variant="tonal"
-              size="small"
-              prepend-icon="mdi-cloud-download-outline"
-              :loading="fetchingProducts"
-              :disabled="!barcodeCount || fetchingProducts"
-              @click="fetchAllProductInfo"
-            >
-              {{ $t('review.fetchAllProducts') }}
-            </v-btn>
           </div>
-          <p v-if="items.length" class="review__items-hint">
+          <p v-if="items.length && !fetchingProducts" class="review__items-hint">
             {{ $t('review.itemsTapHint') }}
           </p>
-          <v-alert
-            v-if="fetchMessage"
-            class="mb-2"
-            :type="fetchMessageType"
-            variant="tonal"
-            density="compact"
-            :text="fetchMessage"
-          />
+          <div v-if="fetchingProducts" class="review__loading" role="status">
+            <v-progress-circular indeterminate color="primary" size="28" width="3" />
+            <p>{{ $t('review.loadingProducts') }}</p>
+          </div>
 
-          <div v-if="items.length" class="review__table-wrap">
+          <div v-else-if="items.length" class="review__table-wrap">
             <table class="review__table">
               <thead class="review__thead">
                 <tr>
@@ -174,7 +159,6 @@
                   @scan="openScanner"
                   @barcode-commit="enrichFromBarcode"
                   @preview="openProductPreview"
-                  @category-confirm="confirmCategory"
                   @swipe-open="onItemSwipeOpen"
                   @swipe-close="onItemSwipeClose"
                 />
@@ -258,12 +242,19 @@
 
     <v-dialog
       v-model="previewOpen"
-      max-width="380"
-      content-class="review-preview-dialog"
+      :max-width="previewIsSheet ? '100%' : 380"
+      :location="previewIsSheet ? 'bottom' : 'center'"
+      :transition="previewIsSheet ? 'dialog-bottom-transition' : 'dialog-transition'"
+      :content-class="previewIsSheet ? 'review-preview-dialog review-preview-dialog--sheet' : 'review-preview-dialog'"
       @update:model-value="onPreviewOpenChange"
     >
-      <v-card v-if="previewItem" class="review-preview">
-        <v-card-title class="review-preview__title">
+      <v-card
+        v-if="previewItem"
+        class="review-preview"
+        :class="{ 'review-preview--sheet': previewIsSheet, 'review-preview--dragging': sheetDragging }"
+        :style="sheetDragStyle"
+      >
+        <v-card-title v-if="!previewIsSheet" class="review-preview__title">
           <span class="review-preview__title-text">
             {{ previewItem.off?.product_name || previewItem.name || $t('review.product') }}
           </span>
@@ -276,22 +267,63 @@
             @click="previewOpen = false"
           />
         </v-card-title>
+        <div class="review-preview__hero">
+          <button
+            v-if="previewIsSheet"
+            type="button"
+            class="review-preview__handle"
+            tabindex="-1"
+            aria-hidden="true"
+            @pointerdown="onSheetPointerDown"
+            @pointermove="onSheetPointerMove"
+            @pointerup="onSheetPointerUp"
+            @pointercancel="onSheetPointerUp"
+          />
+          <div v-if="previewIsSheet" class="review-preview__hero-tools">
+            <v-btn
+              class="review-preview__close"
+              icon="mdi-close"
+              variant="text"
+              size="small"
+              density="comfortable"
+              :aria-label="$t('review.closePreview')"
+              @click="previewOpen = false"
+            />
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              color="primary"
+              icon="mdi-camera"
+              :aria-label="$t('review.takeProductPhoto')"
+              @click="openCameraPhotoPicker"
+            />
+            <v-btn
+              size="x-small"
+              variant="tonal"
+              color="primary"
+              icon="mdi-image-plus"
+              :aria-label="previewItem.userPhotoUrl ? $t('review.changeProductPhoto') : $t('review.addProductPhoto')"
+              @click="openGalleryPhotoPicker"
+            />
+          </div>
+          <img
+            v-if="previewImageUrl"
+            :src="previewImageUrl"
+            :alt="previewItem.off?.product_name || previewItem.name || $t('review.product')"
+            class="review-preview__image"
+          >
+          <div
+            v-else
+            class="review-preview__image review-preview__image--empty"
+          >
+            <v-icon icon="mdi-image-off-outline" size="28" />
+          </div>
+        </div>
         <v-card-text class="review-preview__body">
           <div class="review-preview__photo">
-            <img
-              v-if="previewImageUrl"
-              :src="previewImageUrl"
-              :alt="previewItem.off?.product_name || previewItem.name || $t('review.product')"
-              class="review-preview__image"
-            >
-            <div
-              v-else
-              class="review-preview__image review-preview__image--empty"
-            >
-              <v-icon icon="mdi-image-off-outline" size="28" />
-            </div>
             <div class="review-preview__actions review-preview__actions--photo">
               <v-btn
+                v-if="!previewIsSheet"
                 size="x-small"
                 variant="tonal"
                 color="primary"
@@ -300,6 +332,7 @@
                 @click="openCameraPhotoPicker"
               />
               <v-btn
+                v-if="!previewIsSheet"
                 size="x-small"
                 variant="tonal"
                 color="primary"
@@ -416,6 +449,42 @@
                 <span class="review-preview__unit">{{ $t(previewQuantityUnitKey) }}</span>
               </div>
             </div>
+          </div>
+
+          <div v-if="showPreviewExtras" class="review-preview__extras">
+            <div class="review-preview__origin">
+              <p class="review-preview__match-label">
+                {{ $t('review.origin') }}
+              </p>
+              <v-autocomplete
+                v-model:search="originSearch"
+                :model-value="previewItem.originTag"
+                :items="filteredOriginOptions"
+                item-title="title"
+                item-value="value"
+                clearable
+                no-filter
+                auto-select-first
+                variant="outlined"
+                density="compact"
+                hide-details
+                :placeholder="$t('review.originPlaceholder')"
+                :no-data-text="$t('review.originNoMatch')"
+                class="review-preview__origin-field"
+                @update:model-value="onPreviewOriginChange"
+                @update:search="onOriginSearch"
+              />
+            </div>
+            <v-switch
+              :model-value="Boolean(previewItem.organic)"
+              :label="$t('review.organic')"
+              color="primary"
+              density="compact"
+              hide-details
+              inset
+              class="review-preview__organic"
+              @update:model-value="onPreviewOrganicChange"
+            />
           </div>
 
           <div
@@ -599,7 +668,7 @@
         variant="flat"
         class="review__dock-cta"
         append-icon="mdi-arrow-right"
-        :disabled="!items.length || contributing"
+        :disabled="!items.length || contributing || fetchingProducts"
         :loading="contributing || savingScored"
         @click="goNext"
       >
@@ -615,9 +684,16 @@ import { mapStores } from 'pinia'
 import { useAppStore } from '@/store'
 import openFoodFactsApi from '@/services/openFoodFactsApi'
 import openFoodFactsCategories from '@/services/openFoodFactsCategories'
+import openFoodFactsOrigins from '@/services/openFoodFactsOrigins'
 import openStreetMapApi from '@/services/openStreetMapApi'
 import openPricesApi from '@/services/openPricesApi'
 import constants from '@/constants'
+import {
+  parseOptionalNumber,
+  parseQuantity as parseItemQuantity,
+  quantityStep as itemQuantityStep,
+  quantityUnitKey as itemQuantityUnitKey
+} from '@/utils/reviewItem'
 
 const OSM_TYPE_MAP = {
   node: 'NODE',
@@ -639,9 +715,10 @@ export default {
       scannerOpen: false,
       scanningItemId: null,
       fetchingProducts: false,
-      fetchMessage: null,
-      fetchMessageType: 'info',
       previewOpen: false,
+      previewIsSheet: false,
+      sheetDragY: 0,
+      sheetDragging: false,
       previewItemId: null,
       previewCorrecting: false,
       previewNoBarcodeMode: false,
@@ -657,13 +734,14 @@ export default {
       selectedLocation: null,
       contributing: false,
       contributeMessage: null,
+      contributeDetail: null,
       contributeMessageType: 'info',
       categorySearch: '',
+      originSearch: '',
       categoryImageLoading: false,
       categoryImageMessage: null,
       swipeOpenItemId: null,
       receiptOpen: false,
-      savingDraft: false,
       savingScored: false,
       draftMessage: null,
       draftMessageType: 'info'
@@ -673,6 +751,10 @@ export default {
     ...mapStores(useAppStore),
     receipt() {
       return this.appStore.getReceipt
+    },
+    sheetDragStyle() {
+      if (!this.previewIsSheet || !this.sheetDragY) return null
+      return { transform: `translateY(${this.sheetDragY}px)` }
     },
     receiptImageUrl() {
       return this.receipt?.imagePreviewUrl || null
@@ -698,9 +780,6 @@ export default {
     items() {
       return this.appStore.getItems
     },
-    barcodeCount() {
-      return this.items.filter((item) => item.barcode).length
-    },
     previewItem() {
       if (!this.previewItemId) return null
       return this.items.find((item) => item.id === this.previewItemId) || null
@@ -722,6 +801,13 @@ export default {
       if (!receipt || !matched) return false
       return receipt !== matched && !receipt.includes(matched) && !matched.includes(receipt)
     },
+    // Origin and organic only apply to items without a barcode (category prices).
+    showPreviewExtras() {
+      return Boolean(this.previewItem && !this.previewItem.barcode)
+    },
+    filteredOriginOptions() {
+      return openFoodFactsOrigins.filterOriginOptions(this.originSearch)
+    },
     filteredCategoryOptions() {
       // Keep the full OFF list outside Vue reactive state; only expose the filtered slice.
       const options = openFoodFactsCategories.filterCategoryOptions(this.categorySearch)
@@ -739,10 +825,10 @@ export default {
       )
     },
     previewQuantityUnitKey() {
-      return this.isCategoryPriced(this.previewItem) ? 'review.unitKg' : 'review.unitPackage'
+      return itemQuantityUnitKey(this.previewItem)
     },
     previewQuantityStep() {
-      return this.isCategoryPriced(this.previewItem) ? '0.001' : '1'
+      return itemQuantityStep(this.previewItem)
     },
     showPreviewBarcodeEdit() {
       if (!this.previewItem) return false
@@ -822,11 +908,21 @@ export default {
   mounted() {
     this.receiptOpen = typeof window !== 'undefined'
       && window.matchMedia('(min-width: 960px)').matches
+    this.previewSheetQuery = window.matchMedia('(max-width: 959px)')
+    this.previewIsSheet = this.previewSheetQuery.matches
+    this.onPreviewSheetChange = (event) => {
+      this.previewIsSheet = event.matches
+    }
+    this.previewSheetQuery.addEventListener('change', this.onPreviewSheetChange)
     this.ensureReceipt()
     this.syncSelectedLocationFromStore()
+    this.autoFetchMissingProducts()
     if (this.$route.query.edit) this.openProductPreview(this.$route.query.edit)
   },
   unmounted() {
+    if (this.previewSheetQuery) {
+      this.previewSheetQuery.removeEventListener('change', this.onPreviewSheetChange)
+    }
     if (this.locationSearchTimer) {
       clearTimeout(this.locationSearchTimer)
       this.locationSearchTimer = null
@@ -937,7 +1033,7 @@ export default {
       this.locationMessage = null
 
       // Photon is more reliable from the browser than Nominatim (CORS).
-      openStreetMapApi.openstreetmapSearch(query, 'photon')
+      openStreetMapApi.openstreetmapSearch(query)
         .then((results) => {
           const options = (results || [])
             .map((result) => this.normalizePhotonResult(result))
@@ -961,12 +1057,12 @@ export default {
     geolocateUser() {
       if (!navigator.geolocation) {
         this.locationMessageType = 'error'
-        this.locationMessage = 'Your browser does not support geolocation.'
+        this.locationMessage = this.$t('review.locationGeoUnsupported')
         return
       }
 
       this.locationSearching = true
-      this.locationMessage = 'Locating...'
+      this.locationMessage = this.$t('review.locationGeoSearching')
       this.locationMessageType = 'info'
 
       navigator.geolocation.getCurrentPosition(
@@ -981,7 +1077,7 @@ export default {
               this.locationOptions = options
               if (!options.length) {
                 this.locationMessageType = 'warning'
-                this.locationMessage = 'No shops found nearby.'
+                this.locationMessage = this.$t('review.locationGeoNoShops')
               } else {
                 this.locationMessage = null
                 this.locationQuery = options[0].label
@@ -990,7 +1086,7 @@ export default {
             .catch(() => {
               this.locationOptions = []
               this.locationMessageType = 'error'
-              this.locationMessage = 'Error searching for nearby shops.'
+              this.locationMessage = this.$t('review.locationGeoError')
             })
             .finally(() => {
               this.locationSearching = false
@@ -999,7 +1095,7 @@ export default {
         () => {
           this.locationSearching = false
           this.locationMessageType = 'error'
-          this.locationMessage = 'Permission denied or GPS error.'
+          this.locationMessage = this.$t('review.locationGeoDenied')
         },
         { enableHighAccuracy: true, timeout: 10000 }
       )
@@ -1053,6 +1149,8 @@ export default {
         if (patch.barcode) {
           nextPatch.categoryTag = null
           nextPatch.noBarcodeAvailable = false
+          nextPatch.originTag = null
+          nextPatch.organic = false
         }
       }
 
@@ -1115,7 +1213,7 @@ export default {
         return
       }
 
-      this.appStore.updateItem(itemId, {
+      this.onUpdateItem(itemId, {
         barcode,
         categoryTag: null,
         verified: false,
@@ -1130,73 +1228,48 @@ export default {
       openFoodFactsApi.openfoodfactsProductSearch(barcode)
         .then((data) => {
           if (!data || data.status !== 1 || !data.product) return
-          this.applyProductToItem(itemId, data.product)
+          this.applyFetchedProduct(itemId, data.product, barcode)
         })
         .catch(() => {
           // Keep the barcode even if OFF lookup fails.
         })
     },
-    fetchAllProductInfo() {
-      const codes = this.items
-        .map((item) => item.barcode)
-        .filter(Boolean)
-
-      if (!codes.length) {
-        this.fetchMessageType = 'warning'
-        this.fetchMessage = this.$t('review.fetchAllMissing')
-        return
-      }
-
+    // Barcodes without Open Food Facts details are loaded before the list is shown.
+    autoFetchMissingProducts() {
+      const missing = this.items
+        .filter((item) => item.barcode && !item.off)
+        .map((item) => ({ id: item.id, barcode: String(item.barcode) }))
+      if (!missing.length) return
       this.fetchingProducts = true
-      this.fetchMessage = null
-
-      openFoodFactsApi.openfoodfactsProductsSearch(codes)
-        .then((data) => {
-          const products = (data && data.products) || []
-          const byCode = new Map(
-            products.map((product) => [String(product.code), product])
-          )
-
-          let matched = 0
-          this.items.forEach((item) => {
-            if (!item.barcode) return
-            const product = byCode.get(String(item.barcode))
-            if (!product) return
-            this.applyProductToItem(item.id, product)
-            matched += 1
+      openFoodFactsApi.fetchProductsByCode(missing.map((item) => item.barcode))
+        .then((byCode) => {
+          missing.forEach((item) => {
+            const product = byCode.get(item.barcode)
+            if (product) this.applyFetchedProduct(item.id, product, item.barcode)
           })
-
-          this.fetchMessageType = matched ? 'success' : 'warning'
-          this.fetchMessage = this.$t('review.fetchAllResult', {
-            matched,
-            total: codes.length
-          })
-        })
-        .catch(() => {
-          this.fetchMessageType = 'error'
-          this.fetchMessage = this.$t('review.fetchAllError')
         })
         .finally(() => {
           this.fetchingProducts = false
         })
     },
-    applyProductToItem(itemId, product) {
+    barcodesMatch(left, right) {
+      const a = String(left || '').trim()
+      const b = String(right || '').trim()
+      if (!a || !b) return false
+      if (a === b) return true
+      const strip = (value) => value.replace(/^0+/, '') || '0'
+      return strip(a) === strip(b)
+    },
+    applyFetchedProduct(itemId, product, requestedBarcode) {
       const item = this.appStore.getItems.find((entry) => entry.id === itemId)
-      if (!item || !product) return
+      if (!item || !product || !requestedBarcode) return
+      if (!this.barcodesMatch(item.barcode, requestedBarcode)) return
+      if (!this.barcodesMatch(product.code, requestedBarcode)) return
 
       const patch = {
         categoryTag: null,
         noBarcodeAvailable: false,
-        off: {
-          product_name: product.product_name || null,
-          nutriscore_grade: product.nutriscore_grade || null,
-          nova_group: product.nova_group || null,
-          ecoscore_grade: product.ecoscore_grade || product.environmental_score_grade || null,
-          image_front_small_url: product.image_front_small_url || null,
-          image_front_url: product.image_front_url || product.image_front_small_url || null,
-          brands: product.brands || null,
-          quantity: product.quantity || null
-        }
+        off: openFoodFactsApi.toItemOff(product)
       }
 
       // Keep receipt OCR text when present; only fill empty names from OFF.
@@ -1285,6 +1358,18 @@ export default {
           this.categoryImageLoading = false
         })
     },
+    onOriginSearch(query) {
+      this.originSearch = query || ''
+    },
+    onPreviewOriginChange(value) {
+      if (!this.previewItemId) return
+      this.onUpdateItem(this.previewItemId, { originTag: value || null })
+      this.originSearch = value ? (openFoodFactsOrigins.getOriginName(value) || '') : ''
+    },
+    onPreviewOrganicChange(value) {
+      if (!this.previewItemId) return
+      this.onUpdateItem(this.previewItemId, { organic: Boolean(value) })
+    },
     onCategorySearch(query) {
       this.categorySearch = query || ''
     },
@@ -1294,23 +1379,11 @@ export default {
     },
     onPreviewPriceChange(value) {
       if (!this.previewItemId) return
-      this.onUpdateItem(this.previewItemId, { price: this.parsePreviewNumber(value) })
+      this.onUpdateItem(this.previewItemId, { price: parseOptionalNumber(value) })
     },
     onPreviewQuantityChange(value) {
       if (!this.previewItemId) return
-      const parsed = this.parsePreviewNumber(value)
-      this.onUpdateItem(this.previewItemId, {
-        quantity: parsed === null || parsed <= 0 ? 1 : parsed
-      })
-    },
-    // Category prices are per kg; barcode (product) prices are per package.
-    isCategoryPriced(item) {
-      return Boolean(item && !item.barcode && item.categoryTag)
-    },
-    parsePreviewNumber(value) {
-      if (value === '' || value === null || value === undefined) return null
-      const parsed = Number(value)
-      return Number.isFinite(parsed) ? parsed : null
+      this.onUpdateItem(this.previewItemId, { quantity: parseItemQuantity(value) })
     },
     onPreviewCategoryChange(categoryTag) {
       if (!this.previewItemId) return
@@ -1348,7 +1421,7 @@ export default {
       if (!itemId || !barcode) return
 
       this.previewLookingUp = true
-      this.appStore.updateItem(itemId, {
+      this.onUpdateItem(itemId, {
         barcode,
         categoryTag: null,
         verified: false,
@@ -1362,7 +1435,7 @@ export default {
             this.previewCorrecting = true
             return
           }
-          this.applyProductToItem(itemId, data.product)
+          this.applyFetchedProduct(itemId, data.product, barcode)
           this.previewCorrecting = false
           this.previewNoBarcodeMode = false
         })
@@ -1373,8 +1446,31 @@ export default {
           this.previewLookingUp = false
         })
     },
+    onSheetPointerDown(event) {
+      if (!this.previewIsSheet) return
+      this.sheetDragging = true
+      this.sheetStartY = event.clientY
+      this.sheetDragY = 0
+      if (event.currentTarget.setPointerCapture) {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }
+    },
+    onSheetPointerMove(event) {
+      if (!this.sheetDragging) return
+      const next = event.clientY - this.sheetStartY
+      this.sheetDragY = next > 0 ? next : 0
+    },
+    onSheetPointerUp() {
+      if (!this.sheetDragging) return
+      const shouldClose = this.sheetDragY > 72
+      this.sheetDragging = false
+      this.sheetDragY = 0
+      if (shouldClose) this.previewOpen = false
+    },
     onPreviewOpenChange(open) {
       if (!open) {
+        this.sheetDragY = 0
+        this.sheetDragging = false
         this.previewCorrecting = false
         this.previewNoBarcodeMode = false
         this.previewBarcodeDraft = ''
@@ -1382,6 +1478,7 @@ export default {
         this.previewPhotoMessage = null
         this.previewItemId = null
         this.categorySearch = ''
+        this.originSearch = ''
         this.categoryImageLoading = false
         this.categoryImageMessage = null
       }
@@ -1405,6 +1502,9 @@ export default {
       this.categoryImageMessage = null
       this.categorySearch = item?.categoryTag
         ? (openFoodFactsCategories.getCategoryName(item.categoryTag) || '')
+        : ''
+      this.originSearch = item?.originTag
+        ? (openFoodFactsOrigins.getOriginName(item.originTag) || '')
         : ''
     },
     openGalleryPhotoPicker() {
@@ -1454,23 +1554,6 @@ export default {
     goBack() {
       this.$router.push({ name: 'upload' })
     },
-    saveDraft() {
-      if (!this.items.length || this.savingDraft) return
-      this.savingDraft = true
-      this.draftMessage = null
-      this.appStore.saveReceiptToHistory('draft')
-        .then(() => {
-          this.draftMessageType = 'success'
-          this.draftMessage = this.$t('review.saveDraftSuccess')
-        })
-        .catch(() => {
-          this.draftMessageType = 'error'
-          this.draftMessage = this.$t('review.saveDraftError')
-        })
-        .finally(() => {
-          this.savingDraft = false
-        })
-    },
     persistScoredThenGo() {
       this.savingScored = true
       this.draftMessage = null
@@ -1505,6 +1588,13 @@ export default {
         payload.proof_id = this.receipt.proofId
       }
 
+      if (!item.barcode && item.originTag) {
+        payload.origins_tags = [item.originTag]
+      }
+      if (!item.barcode && item.organic) {
+        payload.labels_tags = [constants.LABEL_ORGANIC]
+      }
+
       if (item.barcode) {
         payload.type = constants.PRICE_TYPE_PRODUCT
         payload.product_code = String(item.barcode)
@@ -1531,7 +1621,9 @@ export default {
         payload.date,
         payload.location_osm_id,
         payload.location_osm_type,
-        payload.price_per || ''
+        payload.price_per || '',
+        (payload.origins_tags || []).join(','),
+        (payload.labels_tags || []).join(',')
       ].join('|')
     },
     itemPriceAlreadySent(item) {
@@ -1541,8 +1633,25 @@ export default {
       if (!keys.length) return false
       return keys.includes(this.pricePayloadKey(this.buildPricePayload(item)))
     },
+    // Turn an Open Prices / network failure into something readable.
+    describeContributeError(error) {
+      if (error && typeof error.status === 'number') {
+        const detail = error.data && error.data.detail
+        let text = ''
+        if (Array.isArray(detail)) {
+          text = detail
+            .map((entry) => `${(entry.loc || []).slice(1).join('.')}: ${entry.msg}`)
+            .join('; ')
+        } else if (typeof detail === 'string') {
+          text = detail
+        }
+        return `${error.status}${text ? ` ${text}` : ''}`
+      }
+      return error && error.message ? error.message : this.$t('review.contributeUnknownError')
+    },
     sendContributePrices() {
       this.contributeMessage = null
+      this.contributeDetail = null
 
       if (!this.appStore.user?.token) {
         this.contributeMessageType = 'warning'
@@ -1605,6 +1714,13 @@ export default {
 
           const sent = succeededKeys.size
           const failed = results.length - sent
+          const reasons = results
+            .filter((result) => result.status === 'rejected')
+            .map((result) => this.describeContributeError(result.reason))
+          if (reasons.length) {
+            console.error('Open Prices rejected price(s):', results.filter((r) => r.status === 'rejected').map((r) => r.reason))
+          }
+          this.contributeDetail = reasons.length ? [...new Set(reasons)].join(' · ') : null
           if (!failed) {
             this.contributeMessageType = 'success'
             this.contributeMessage = this.$t('review.contributeSuccess', {
@@ -1614,11 +1730,10 @@ export default {
             return
           }
           this.contributeMessageType = sent ? 'warning' : 'error'
-          this.contributeMessage = this.$t('review.contributePartial', {
-            sent,
-            total: results.length,
-            failed
-          })
+          this.contributeMessage = [
+            this.$t('review.contributePartial', { sent, total: results.length, failed }),
+            this.contributeDetail ? this.$t('review.contributeDetail', { detail: this.contributeDetail }) : null
+          ].filter(Boolean).join(' ')
         })
         .catch(() => {
           this.contributeMessageType = 'error'
@@ -1941,6 +2056,20 @@ export default {
   font-weight: 600;
 }
 
+.review__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 0.5rem;
+  color: rgba(14, 36, 28, 0.7);
+  font-size: 0.9rem;
+}
+
+.review__loading p {
+  margin: 0;
+}
+
 .review__empty {
   padding: 1.25rem 0.5rem;
   text-align: center;
@@ -2146,6 +2275,90 @@ export default {
   border: 1px solid rgba(14, 36, 28, 0.08);
 }
 
+.review-preview__hero {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.review-preview--sheet {
+  width: 100%;
+  border-radius: 1rem 1rem 0 0 !important;
+  overflow: hidden;
+}
+
+.review-preview--dragging {
+  transition: none;
+}
+
+.review-preview--sheet .review-preview__hero {
+  display: block;
+}
+
+.review-preview--sheet .review-preview__image {
+  display: block;
+  width: 100%;
+  height: 200px;
+  max-height: 200px;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+}
+
+.review-preview--sheet .review-preview__image--empty {
+  display: flex;
+}
+
+.review-preview__handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  width: 4.5rem;
+  height: 1.6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.review-preview__handle::before {
+  content: '';
+  display: block;
+  width: 2.25rem;
+  height: 4px;
+  margin: 0.45rem auto 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(14, 36, 28, 0.18), 0 1px 2px rgba(14, 36, 28, 0.28);
+}
+
+.review-preview__hero-tools {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.review-preview__hero-tools .review-preview__close {
+  position: static;
+}
+
+.review-preview__close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
 .review-preview__photo {
   display: flex;
   flex-direction: column;
@@ -2311,6 +2524,29 @@ export default {
   background: #fff;
 }
 
+.review-preview__extras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(14, 36, 28, 0.1);
+  text-align: left;
+}
+
+.review-preview__origin-field {
+  margin-top: 0.3rem;
+}
+
+.review-preview__origin-field :deep(.v-field) {
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.review-preview__organic {
+  margin-left: -0.15rem;
+}
+
 .review-preview__edit,
 .review-preview__category {
   margin-top: 0.55rem;
@@ -2345,5 +2581,16 @@ export default {
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.45rem;
+}
+</style>
+
+<style>
+.review-preview-dialog--sheet.v-overlay__content {
+  align-self: flex-end;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 1rem 1rem 0 0 !important;
+  overflow: hidden;
 }
 </style>

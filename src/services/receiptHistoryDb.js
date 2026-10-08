@@ -67,6 +67,8 @@ function cloneItems(items = []) {
     weightUnit: item.weightUnit ?? null,
     barcode: item.barcode ?? null,
     categoryTag: item.categoryTag ?? null,
+    originTag: item.originTag ?? null,
+    organic: Boolean(item.organic),
     off: item.off ? { ...item.off } : null,
     verified: Boolean(item.verified),
     priceSent: Boolean(item.priceSent),

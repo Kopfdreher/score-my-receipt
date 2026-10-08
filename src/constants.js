@@ -23,6 +23,7 @@ export default {
   PROOF_TYPE_RECEIPT,
   PRICE_TYPE_PRODUCT: 'PRODUCT',
   PRICE_TYPE_CATEGORY: 'CATEGORY',
+  LABEL_ORGANIC: 'en:organic',
   // Fallback when Intl.supportedValuesOf('currency') is unavailable.
   CURRENCY_OPTIONS: [
     'EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'ISK', 'PLN', 'CZK', 'HUF',
@@ -35,9 +36,6 @@ export default {
   ],
   OSM_NAME: 'OpenStreetMap',
   OSM_URL: 'https://www.openstreetmap.org',
-  OSM_NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
-  OSM_NOMINATIM_SEARCH_URL: 'https://nominatim.openstreetmap.org/search',
-  OSM_NOMINATIM_LOOKUP_URL: 'https://nominatim.openstreetmap.org/lookup',
   OSM_PHOTON_URL: 'https://photon.komoot.io',
   OSM_PHOTON_SEARCH_URL: 'https://photon.komoot.io/api/',
   OSM_PHOTON_REVERSE_URL: 'https://photon.komoot.io/reverse',

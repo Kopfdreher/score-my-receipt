@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { build } from 'esbuild'
 const bundled = await build({ entryPoints: ['src/utils/basketAnalysis.js'], bundle: true, write: false, platform: 'node', format: 'esm', alias: { '@': './src' } })
 const analysis = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`)
-const { analyseProducts, distribution, nutrientTotal, macronutrientProportions, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts } = analysis
+const { analyseProducts, categoryEstimateKey, distribution, nutrientTotal, macronutrientProportions, carbonTotal, additiveSummary, allergenGroups, improvementReasons, sortProducts } = analysis
 const code = '12345678'
 const off = {
   quantity: '500 g', nutriscore_grade: 'e', nova_group: 4, ecoscore_grade: 'f',
@@ -130,3 +130,20 @@ assert.equal(carbon.items[0].share, 0.8)
 assert.equal(carbon.items.reduce((sum, p) => sum + p.share, 0), 1)
 assert.equal(carbonTotal([{ co2Kg: 0 }]).items[0].share, 0, 'zero total has a finite contribution')
 assert.deepEqual(carbonProducts.map(p => p.id), ['small', 'unknown', 'large', 'zero'], 'source products are not reordered')
+
+const organicProduce = analyseProducts([{ id: 'organic', name: 'Apples', categoryTag: 'en:apples', organic: true, weight: 1, weightUnit: 'kg' }])[0]
+assert.deepEqual(organicProduce.labels, ['en:organic'], 'category lines marked organic count as organic')
+const packagedOrganic = analyseProducts([{ barcode: code, organic: true, off: { labels_tags: ['en:fair-trade'] } }])[0]
+assert.deepEqual(packagedOrganic.labels, ['en:fair-trade'], 'barcode products keep Open Food Facts labels')
+const splitOrganic = analyseProducts([
+  { id: 'plain', name: 'Apples', categoryTag: 'en:apples', organic: false, weight: 1, weightUnit: 'kg' },
+  { id: 'marked', name: 'Organic apples', categoryTag: 'en:apples', organic: true, weight: 1, weightUnit: 'kg' }
+])
+assert.equal(splitOrganic.length, 2, 'organic and conventional produce stay separate')
+const splitOrigin = analyseProducts([
+  { id: 'fr', name: 'French apples', categoryTag: 'en:apples', originTag: 'en:france', weight: 1, weightUnit: 'kg' },
+  { id: 'es', name: 'Spanish apples', categoryTag: 'en:apples', originTag: 'en:spain', weight: 1, weightUnit: 'kg' }
+])
+assert.equal(splitOrigin.length, 2, 'different origins stay separate')
+assert.equal(categoryEstimateKey('en:apples', 'en:france'), categoryEstimateKey('en:apples', 'en:france'))
+assert.notEqual(categoryEstimateKey('en:apples', 'en:france'), categoryEstimateKey('en:apples', null))

@@ -70,6 +70,7 @@ export default {
     statusMessage() {
       if (this.phase === 'uploading') return this.$t('upload.uploading')
       if (this.phase === 'extracting') return this.$t('upload.extracting')
+      if (this.phase === 'enriching') return this.$t('upload.enriching')
       return this.$t('upload.support')
     }
   },
@@ -100,6 +101,7 @@ export default {
       openPricesApi.createProof(file, { date, currency })
         .then((proof) => {
           const proofId = proof && proof.id
+          if (!proofId) return Promise.reject(new Error('Missing proof id'))
           this.phase = 'extracting'
           return this.pollReceiptItems(proofId, 0)
             .then((rows) => ({ proofId, rows }))
@@ -114,6 +116,10 @@ export default {
             )))
             .catch(() => mapped)
             .then((checked) => Promise.all(checked.map((item) => this.matchReceiptItem(item))))
+            .then((items) => {
+              this.phase = 'enriching'
+              return this.attachProductDetails(items).then(() => items)
+            })
             .then((items) => {
               store.setReceiptFromCapture({
                 proofId,
@@ -136,6 +142,21 @@ export default {
         })
         .finally(() => {
           this.busy = false
+        })
+    },
+    // Fetch Open Food Facts photo + details for every barcode so Adjust opens ready.
+    attachProductDetails(items) {
+      const withBarcode = items.filter((item) => item.barcode)
+      if (!withBarcode.length) return Promise.resolve()
+      return openFoodFactsApi.fetchProductsByCode(withBarcode.map((item) => item.barcode))
+        .then((byCode) => {
+          withBarcode.forEach((item) => {
+            const product = byCode.get(String(item.barcode))
+            if (!product) return
+            item.off = openFoodFactsApi.toItemOff(product)
+            item.categoryTag = null
+            if (!item.name && product.product_name) item.name = product.product_name
+          })
         })
     },
     pollReceiptItems(proofId, attempt) {
@@ -226,7 +247,7 @@ export default {
       const region = (locale.split('-')[1] || '').toUpperCase()
       if (region === 'US') return 'USD'
       if (region === 'GB') return 'GBP'
-	  if (region == 'COL') return 'COP'
+      if (region === 'CO') return 'COP'
       return 'EUR'
     },
     clearPoll() {

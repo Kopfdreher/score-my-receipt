@@ -5,13 +5,13 @@ import { build } from 'esbuild'
 
 const bundled = await build({
   stdin: {
-    contents: "export { default as api, categoryEstimateIngredient } from './src/services/openFoodFactsEstimates.js'; export { analyseProducts, distribution, allergenGroups, additiveSummary } from './src/utils/basketAnalysis.js'",
+    contents: "export { default as api, categoryEstimateIngredient } from './src/services/openFoodFactsEstimates.js'; export { analyseProducts, categoryEstimateKey, distribution, allergenGroups, additiveSummary } from './src/utils/basketAnalysis.js'",
     resolveDir: process.cwd()
   },
   bundle: true, write: false, platform: 'node', format: 'esm',
   alias: { '@': './src' }, define: { 'import.meta.env': '{}' }
 })
-const { api, categoryEstimateIngredient, analyseProducts, distribution, allergenGroups, additiveSummary } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`)
+const { api, categoryEstimateIngredient, analyseProducts, categoryEstimateKey, distribution, allergenGroups, additiveSummary } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`)
 const originalFetch = globalThis.fetch
 const calls = []
 globalThis.fetch = (url, options) => {
@@ -32,12 +32,18 @@ try {
   assert.equal(categoryEstimateIngredient('en:apple-desserts'), null)
   assert.equal(await api.getCategoryEstimate('en:apple-desserts'), null)
   assert.equal(calls.length, 0, 'unsupported categories never call OFF')
-  const estimates = { 'en:apples': await api.getCategoryEstimate('en:apples'), 'en:fresh-apples': await api.getCategoryEstimate('en:fresh-apples') }
+  const estimates = {
+    [categoryEstimateKey('en:apples', null)]: await api.getCategoryEstimate('en:apples'),
+    [categoryEstimateKey('en:fresh-apples', null)]: await api.getCategoryEstimate('en:fresh-apples')
+  }
   assert.equal(calls[0].url, 'https://world.openfoodfacts.org/api/v3/product/test', 'only the non-saving test endpoint is used')
   assert.equal(calls[0].options.method, 'PATCH')
   assert.deepEqual(calls[0].body.product, { categories_tags: ['en:apples'], ingredients_text_en: 'Apple' })
   assert.equal(calls[0].body.cc, 'fr')
-  assert.equal(estimates['en:apples'].allergens_tags, undefined, 'synthetic allergen absence is discarded')
+  const french = await api.getCategoryEstimate('en:apples', 'en:france')
+  assert.deepEqual(calls.at(-1).body.product, { categories_tags: ['en:apples'], ingredients_text_en: 'Apple', origins_tags: ['en:france'] })
+  assert.equal(french.originTag, 'en:france')
+  assert.equal(estimates[categoryEstimateKey('en:apples', null)].allergens_tags, undefined, 'synthetic allergen absence is discarded')
   const products = analyseProducts([
     { id: 'apple', name: 'Apples', categoryTag: 'en:apples', weight: 1, weightUnit: 'kg' },
     { id: 'fresh', name: 'Fresh apples', categoryTag: 'en:fresh-apples' },

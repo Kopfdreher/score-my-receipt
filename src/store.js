@@ -100,7 +100,7 @@ export const useAppStore = defineStore('app', {
       const item = this.receipt.items.find((entry) => entry.id === id)
       if (!item) return
 
-      const sendIdentityChanged = ['price', 'barcode', 'categoryTag'].some((key) => (
+      const sendIdentityChanged = ['price', 'barcode', 'categoryTag', 'originTag', 'organic'].some((key) => (
         Object.prototype.hasOwnProperty.call(patch, key)
         && !sameSendField(key, item[key], patch[key])
       ))
@@ -117,6 +117,8 @@ export const useAppStore = defineStore('app', {
         quantity: item.quantity ?? 1,
         barcode: item.barcode ?? null,
         categoryTag: item.categoryTag ?? null,
+        originTag: item.originTag ?? null,
+        organic: Boolean(item.organic),
         off: item.off ?? null,
         verified: item.verified ?? false,
         priceSent: item.priceSent ?? false,
