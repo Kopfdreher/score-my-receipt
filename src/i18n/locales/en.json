@@ -47,6 +47,7 @@
     "contributeNeedLocation": "Select a recognized shop location first.",
     "contributeNeedSignIn": "Sign in to contribute prices.",
     "contributeNeedDate": "Set the receipt date first.",
+    "contributeNeedProof": "Upload the receipt first. Open Prices needs that photo before it can accept a price.",
     "contributeNothingToSend": "No verified barcode or category items to send.",
     "contributeSuccess": "Sent {sent} of {total} prices to Open Prices.",
     "contributePartial": "Sent {sent} of {total} prices. {failed} failed.",

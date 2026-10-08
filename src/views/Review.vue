@@ -168,15 +168,6 @@
 
           <div v-else class="review__empty">
             <p>{{ receipt.proofId ? $t('review.emptyCaptured') : $t('review.empty') }}</p>
-            <v-btn
-              v-if="!receipt.proofId"
-              color="primary"
-              variant="tonal"
-              size="small"
-              @click="loadMock"
-            >
-              {{ $t('review.loadMock') }}
-            </v-btn>
           </div>
 
           <v-btn
@@ -930,21 +921,11 @@ export default {
   },
   methods: {
     ensureReceipt() {
+      // Optional isolation only: /review?mock=1. Never seed dummy items on a normal visit.
       if (this.$route.query.mock === '1') {
         this.appStore.loadMockReceipt()
         this.syncSelectedLocationFromStore()
-        return
       }
-      // Keep a restored History entry even when it has no Open Prices proofId.
-      if (this.appStore.getReceipt.historyId) return
-      if (!this.appStore.getReceipt.proofId && this.appStore.getItems.length === 0) {
-        this.appStore.loadMockReceipt()
-        this.syncSelectedLocationFromStore()
-      }
-    },
-    loadMock() {
-      this.appStore.loadMockReceipt()
-      this.syncSelectedLocationFromStore()
     },
     syncSelectedLocationFromStore() {
       if (!this.receipt?.locationOsmId) {
@@ -1579,13 +1560,13 @@ export default {
         price,
         currency: this.currency,
         date: this.receiptDate,
-        location_osm_id: this.receipt.locationOsmId,
+        location_osm_id: Number(this.receipt.locationOsmId),
         location_osm_type: this.receipt.locationOsmType,
         receipt_quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1
       }
 
       if (this.receipt.proofId) {
-        payload.proof_id = this.receipt.proofId
+        payload.proof_id = Number(this.receipt.proofId)
       }
 
       if (!item.barcode && item.originTag) {
@@ -1596,8 +1577,9 @@ export default {
       }
 
       if (item.barcode) {
+        const productCode = String(item.barcode).replace(/[^0-9A-Za-z]/g, '')
         payload.type = constants.PRICE_TYPE_PRODUCT
-        payload.product_code = String(item.barcode)
+        payload.product_code = productCode
       } else if (item.categoryTag) {
         payload.type = constants.PRICE_TYPE_CATEGORY
         payload.category_tag = item.categoryTag
@@ -1646,18 +1628,37 @@ export default {
     // Turn an Open Prices / network failure into something readable.
     describeContributeError(error) {
       if (error && typeof error.status === 'number') {
-        const detail = error.data && error.data.detail
-        let text = ''
-        if (Array.isArray(detail)) {
-          text = detail
-            .map((entry) => `${(entry.loc || []).slice(1).join('.')}: ${entry.msg}`)
-            .join('; ')
-        } else if (typeof detail === 'string') {
-          text = detail
-        }
-        return `${error.status}${text ? ` ${text}` : ''}`
+        const text = this.flattenApiError(error.data)
+        return text || String(error.status)
       }
       return error && error.message ? error.message : this.$t('review.contributeUnknownError')
+    },
+    flattenApiError(data) {
+      if (!data) return ''
+      if (typeof data === 'string') return data
+      if (Array.isArray(data)) {
+        return data.map((entry) => this.flattenApiError(entry)).filter(Boolean).join('; ')
+      }
+      if (data.loc || data.msg) {
+        const field = (data.loc || []).slice(1).join('.')
+        return field ? `${field}: ${data.msg}` : String(data.msg || '')
+      }
+      return Object.keys(data)
+        .map((key) => {
+          const value = this.flattenApiError(data[key])
+          if (!value || key === 'detail' || key === 'status') return value
+          return `${key}: ${value}`
+        })
+        .filter(Boolean)
+        .join('; ')
+    },
+    syncProofForContribute() {
+      return openPricesApi.updateProof(this.receipt.proofId, {
+        location_osm_id: Number(this.receipt.locationOsmId),
+        location_osm_type: this.receipt.locationOsmType,
+        date: this.receiptDate,
+        currency: this.currency
+      })
     },
     sendContributePrices() {
       this.contributeMessage = null
@@ -1678,11 +1679,17 @@ export default {
         this.contributeMessage = this.$t('review.contributeNeedDate')
         return
       }
+      if (!this.receipt.proofId) {
+        this.contributeMessageType = 'warning'
+        this.contributeMessage = this.$t('review.contributeNeedProof')
+        return
+      }
 
       const seen = new Set(this.receipt.sentPriceKeys || [])
       const queued = []
       this.contributableItems.forEach((item) => {
         const payload = this.buildPricePayload(item)
+        if (payload.type === constants.PRICE_TYPE_PRODUCT && !payload.product_code) return
         const key = this.pricePayloadKey(payload)
         if (seen.has(key)) return
         seen.add(key)
@@ -1699,9 +1706,10 @@ export default {
       this.appStore.updateReceiptMeta({ contributePrices: true })
       this.contributing = true
 
-      Promise.allSettled(
-        queued.map((entry) => openPricesApi.createPrice(entry.payload, 'review'))
-      )
+      this.syncProofForContribute()
+        .then(() => Promise.allSettled(
+          queued.map((entry) => openPricesApi.createPrice(entry.payload, 'review'))
+        ))
         .then((results) => {
           const succeededKeys = new Set()
           results.forEach((result, index) => {
@@ -1745,9 +1753,11 @@ export default {
             this.contributeDetail ? this.$t('review.contributeDetail', { detail: this.contributeDetail }) : null
           ].filter(Boolean).join(' ')
         })
-        .catch(() => {
+        .catch((error) => {
           this.contributeMessageType = 'error'
-          this.contributeMessage = this.$t('review.contributeError')
+          this.contributeMessage = this.$t('review.contributeDetail', {
+            detail: this.describeContributeError(error)
+          })
         })
         .finally(() => {
           this.contributing = false
